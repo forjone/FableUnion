@@ -81,9 +81,10 @@ export interface DialogueEntry {
 export interface GameSpec {
   title: string;
   mechanic: MechanicId;
-  heroEmoji: string;
+  /** 主角的角色造型 id（词库 subject id 或 custom:名字） */
+  heroId: string;
   heroLabel: string;
-  companionEmoji: string | null;
+  companionId: string | null;
   sceneId: string;
   tone: ToneId;
   effect: EffectId | null;

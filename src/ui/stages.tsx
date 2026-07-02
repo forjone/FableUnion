@@ -1,25 +1,44 @@
 // 六阶段闭环的各个界面（PRD 第 2 节）。全部为呈现组件，流程决策在 App。
 
 import { useEffect, useRef, useState } from 'react';
-import { optionSketch, sketchSVG, workTitle } from '../engine/sketch';
+import { characterSVG } from '../art/characters';
+import {
+  IconCheck, IconGamepad, IconHand, IconMic, IconPencil, IconSparkle, Mascot,
+} from '../art/icons';
+import {
+  difficultyBadgeSVG, mechanicBadgeSVG, optionSketch, sceneBadgeSVG, sketchSVG,
+  toneBadgeSVG, workTitle,
+} from '../engine/sketch';
 import { buildSteps } from '../engine/story';
-import type { Divergence, DivergenceOption, SlotName, SlotProfile, WorkRecord } from '../engine/types';
+import type {
+  Divergence, DivergenceOption, SlotName, SlotProfile, WorkRecord,
+} from '../engine/types';
 import { BigButton, Card, SketchView } from './bits';
+
+/** 分歧/卡片选项的图形徽章：根据槽位类型渲染对应插画 */
+function optionBadge(div: Divergence, opt: DivergenceOption): string {
+  if (div.slot === 'subject' && opt.patch.subject) return characterSVG(opt.patch.subject.id);
+  if (div.slot === 'scene' && opt.patch.scene) return sceneBadgeSVG(opt.patch.scene.id);
+  if (div.slot === 'mechanic' && opt.patch.mechanic) return mechanicBadgeSVG(opt.patch.mechanic);
+  if (div.slot === 'tone' && opt.patch.tone) return toneBadgeSVG(opt.patch.tone);
+  if (div.slot === 'difficulty') return difficultyBadgeSVG(opt.patch.difficulty === 'hard');
+  return characterSVG(undefined);
+}
 
 // ---------- ① 语音倾听（MVP：文字输入模拟语音，PRD 第 7 节） ----------
 
 const FRESH_CHIPS = [
-  { emoji: '🦖', text: '我想要恐龙赛跑，恐龙一定要会喷火！' },
-  { emoji: '🦄', text: '独角兽在彩虹上收集星星' },
-  { emoji: '👻', text: '小幽灵的游戏' },
-  { emoji: '🚀', text: '火箭在太空躲陨石，要超级快，酷酷的' },
+  { charId: 'dino', text: '我想要恐龙赛跑，恐龙一定要会喷火！' },
+  { charId: 'unicorn', text: '独角兽在彩虹上收集星星' },
+  { charId: 'ghost', text: '小幽灵的游戏' },
+  { charId: 'rocket', text: '火箭在太空躲陨石，要超级快，酷酷的' },
 ];
 
 const ITERATE_CHIPS = [
-  { emoji: '🔥', text: '一定要会喷火' },
-  { emoji: '🏰', text: '换到城堡里' },
-  { emoji: '🐱', text: '让小猫也一起来' },
-  { emoji: '⭐', text: '难不难？我要大挑战' },
+  { charId: 'dragon', text: '一定要会喷火' },
+  { charId: 'princess', text: '换到城堡里' },
+  { charId: 'cat', text: '让小猫也一起来' },
+  { charId: 'star', text: '难不难？我要大挑战' },
 ];
 
 export function ListenStage(props: { iterating: boolean; onSubmit: (text: string) => void }) {
@@ -30,7 +49,12 @@ export function ListenStage(props: { iterating: boolean; onSubmit: (text: string
   const submit = () => { props.onSubmit(text); setText(''); };
   return (
     <Card className="stage-listen">
-      <div className="mic-face" aria-hidden>🎤</div>
+      <div className="listen-mascot">
+        <Mascot size={96} waving />
+        <div className="listen-ears" aria-hidden>
+          <span /><span /><span /><span /><span />
+        </div>
+      </div>
       <textarea
         ref={inputRef}
         className="speech-input"
@@ -42,11 +66,11 @@ export function ListenStage(props: { iterating: boolean; onSubmit: (text: string
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
         }}
       />
-      <BigButton emoji="✨" label="说完啦！" kind="ok" onClick={submit} />
+      <BigButton icon={<IconSparkle size={30} />} label="说完啦！" kind="ok" onClick={submit} />
       <div className="chips">
         {chips.map((c) => (
           <button key={c.text} className="chip" type="button" onClick={() => setText(c.text)}>
-            <span className="chip-emoji">{c.emoji}</span>
+            <span className="chip-art" dangerouslySetInnerHTML={{ __html: characterSVG(c.charId, 34) }} />
             <span className="chip-text">{c.text}</span>
           </button>
         ))}
@@ -78,13 +102,16 @@ export function SketchStage(props: {
   }, [onPass]);
   return (
     <Card className="stage-sketch">
-      <SketchView svg={svg} className="sketch-pop" />
+      <div className="polaroid">
+        <SketchView svg={svg} className="sketch-pop" />
+        <span className="polaroid-tape" aria-hidden />
+      </div>
       <div className="quiet-timer" aria-hidden>
         <div className="quiet-timer-fill" style={{ width: `${(left / PASS_AFTER_MS) * 100}%` }} />
       </div>
       <div className="row">
-        <BigButton emoji="👍" label="好耶！" kind="ok" onClick={props.onPass} />
-        <BigButton emoji="✋" label="不是这样的" kind="warn" onClick={props.onInterrupt} />
+        <BigButton icon={<IconCheck size={30} />} label="好耶！" kind="ok" onClick={props.onPass} />
+        <BigButton icon={<IconHand size={30} />} label="不是这样的" kind="warn" onClick={props.onInterrupt} />
       </div>
     </Card>
   );
@@ -98,22 +125,24 @@ export function FixWhatStage(props: {
   onResay: () => void;
 }) {
   const p = props.profile;
-  const cards: { slot: SlotName; emoji: string; label: string }[] = [
-    { slot: 'subject', emoji: p.subject?.emoji ?? '🦖', label: '换主角' },
-    { slot: 'scene', emoji: p.scene?.emoji ?? '🏞️', label: '换地方' },
-    { slot: 'mechanic', emoji: '🎮', label: '换玩法' },
+  const cards: { slot: SlotName; art: string; label: string }[] = [
+    { slot: 'subject', art: characterSVG(p.subject?.id), label: '换主角' },
+    { slot: 'scene', art: sceneBadgeSVG(p.scene?.id ?? 'meadow'), label: '换地方' },
+    { slot: 'mechanic', art: '', label: '换玩法' },
   ];
   return (
     <Card className="stage-fixwhat">
       <div className="option-row">
         {cards.map((c) => (
           <button key={c.slot} className="pick-card" type="button" onClick={() => props.onPick(c.slot)}>
-            <span className="pick-emoji">{c.emoji}</span>
+            {c.slot === 'mechanic'
+              ? <span className="pick-art pick-art-icon"><IconGamepad size={64} /></span>
+              : <span className="pick-art" dangerouslySetInnerHTML={{ __html: c.art }} />}
             <span className="pick-label">{c.label}</span>
           </button>
         ))}
         <button className="pick-card" type="button" onClick={props.onResay}>
-          <span className="pick-emoji">🎤</span>
+          <span className="pick-art pick-art-icon"><IconMic size={64} /></span>
           <span className="pick-label">我再说一遍</span>
         </button>
       </div>
@@ -136,13 +165,13 @@ export function DivergeStage(props: {
           {divergence.options.map((opt, i) => (
             <button
               key={opt.label}
-              className="option-sketch"
+              className={`option-sketch tilt-${i % 2 ? 'r' : 'l'}`}
               type="button"
               onClick={() => props.onPick(opt)}
             >
               <SketchView svg={optionSketch(profile, opt.patch, `opt${i}`)} />
               <span className="option-badge">
-                <span className="pick-emoji">{opt.emoji}</span>
+                <span className="option-badge-art" dangerouslySetInnerHTML={{ __html: optionBadge(divergence, opt) }} />
                 <span className="pick-label">{opt.label}</span>
               </span>
             </button>
@@ -156,7 +185,7 @@ export function DivergeStage(props: {
       <div className="option-row">
         {divergence.options.map((opt) => (
           <button key={opt.label} className="pick-card" type="button" onClick={() => props.onPick(opt)}>
-            <span className="pick-emoji">{opt.emoji}</span>
+            <span className="pick-art" dangerouslySetInnerHTML={{ __html: optionBadge(divergence, opt) }} />
             <span className="pick-label">{opt.label}</span>
           </button>
         ))}
@@ -181,8 +210,8 @@ export function ConfirmStage(props: {
     <Card className="stage-confirm">
       <SketchView svg={svg} className="sketch-pop" />
       <div className="row">
-        <BigButton emoji="✅" label="对！就是这个！" kind="ok" onClick={props.onYes} />
-        <BigButton emoji="✋" label="还不对" kind="warn" onClick={props.onNo} />
+        <BigButton icon={<IconCheck size={30} />} label="对！就是这个！" kind="ok" onClick={props.onYes} />
+        <BigButton icon={<IconHand size={30} />} label="还不对" kind="warn" onClick={props.onNo} />
       </div>
     </Card>
   );
@@ -199,10 +228,12 @@ export function BuildStage(props: { profile: SlotProfile; onDone: () => void }) 
     const t = setTimeout(() => setStepIdx((i) => i + 1), 950);
     return () => clearTimeout(t);
   }, [stepIdx, steps.length, onDone]);
-  const hero = props.profile.subject?.custom ? '✨' : props.profile.subject?.emoji ?? '🦖';
   return (
     <Card className="stage-build">
-      <div className="build-hero bounce" aria-hidden>{hero}</div>
+      <div className="build-scene">
+        <span className="build-hero bounce" dangerouslySetInnerHTML={{ __html: characterSVG(props.profile.subject?.id, 110) }} />
+        <span className="build-mascot"><Mascot size={72} waving /></span>
+      </div>
       <div className="build-step">{steps[Math.min(stepIdx, steps.length - 1)]}</div>
       <div className="build-bar">
         <div
@@ -224,10 +255,10 @@ export function HomeStage(props: {
 }) {
   return (
     <Card className="stage-home">
-      <div className="logo" aria-hidden>🏠✨</div>
+      <div className="home-mascot"><Mascot size={120} waving /></div>
       <h1 className="home-title">奇想造物屋</h1>
       <p className="home-sub">把你脑袋里的奇思妙想，变成真的游戏！</p>
-      <BigButton emoji="🎤" label="说出你的想法" kind="primary" onClick={props.onStart} className="home-start" />
+      <BigButton icon={<IconMic size={34} />} label="说出你的想法" kind="primary" onClick={props.onStart} className="home-start" />
       {props.works.length > 0 && (
         <div className="shelf">
           <div className="shelf-title">我的作品</div>
@@ -235,7 +266,7 @@ export function HomeStage(props: {
             {props.works.map((w) => (
               <div key={w.id} className="work-card">
                 <button className="work-main" type="button" onClick={() => props.onPlay(w)}>
-                  <span className="work-emoji">{w.spec.heroEmoji}</span>
+                  <span className="work-art" dangerouslySetInnerHTML={{ __html: characterSVG(w.spec.heroId, 56) }} />
                   <span className="work-title">{w.title}</span>
                 </button>
                 <button
@@ -244,7 +275,7 @@ export function HomeStage(props: {
                   title="接着上次的改"
                   onClick={() => props.onIterate(w)}
                 >
-                  ✏️
+                  <IconPencil size={22} />
                 </button>
               </div>
             ))}

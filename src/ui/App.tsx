@@ -16,7 +16,8 @@ import { controlHint } from '../engine/game';
 import type {
   DialogueEntry, Divergence, DivergenceOption, GameSpec, SlotName, SlotProfile, WorkRecord,
 } from '../engine/types';
-import { Bubble } from './bits';
+import { IconGear, IconHome, IconSound } from '../art/icons';
+import { Backdrop, Bubble } from './bits';
 import { PlayStage } from './GameCanvas';
 import {
   BuildStage, ConfirmStage, DivergeStage, FixWhatStage, HomeStage, ListenStage, SketchStage,
@@ -243,12 +244,15 @@ export default function App() {
 
   return (
     <div className="app">
+      <Backdrop />
       <header className="topbar">
         {stage.name !== 'home' ? (
-          <button className="icon-btn" type="button" onClick={goHome} title="回小屋">🏠</button>
+          <button className="icon-btn" type="button" onClick={goHome} title="回小屋">
+            <IconHome size={30} />
+          </button>
         ) : <span />}
         <button className="icon-btn" type="button" onClick={toggleSound} title="声音开关">
-          {soundOn ? '🔊' : '🔇'}
+          <IconSound size={30} off={!soundOn} />
         </button>
       </header>
 
@@ -289,7 +293,7 @@ export default function App() {
       </main>
 
       <button className="dev-toggle" type="button" onClick={() => setDevOpen((o) => !o)} title="内部骨架（开发/家长用）">
-        ⚙️
+        <IconGear size={20} />
       </button>
       {devOpen && <pre className="dev-panel">{devInfo}</pre>}
     </div>

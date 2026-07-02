@@ -1,15 +1,24 @@
 // 可视化草图生成（PRD 3.4 / 3.5）。
-// 程序化 SVG：毫秒级出图，最大化“从说出来到看见它”的速度感（设计北极星准则 2）。
-// draft = 低保真蜡笔风草稿（隐式确认用）；final = 更完整的终稿效果图（显式确认用）。
+// 用与角色库同风格的矢量插画程序化合成场景：毫秒级出图（速度感即体验）。
+// draft = 蜡笔质感低保真草稿（隐式确认用）；final = 更完整的终稿效果图（显式确认用）。
 
+import { characterMarkup } from '../art/characters';
+import {
+  balloonProp, basket, bubble, building, cactus, candy, castleTower, cloud, coin, cone,
+  coral, crater, cupcake, flagCheck, flower, lollipop, moonProp, mushroom, pine, planet,
+  rainbowArc, rock, schoolhouse, shell, snowflake, snowman, sparkle, star5, sun,
+  treeRound, trophy, volcanoMt, waves, type PropFn,
+} from '../art/props';
+import { INK, PALETTE as P } from '../art/style';
 import { mechanicMeta } from './lexicon';
-import type { SlotProfile, ToneId } from './types';
+import type { MechanicId, SlotProfile, ToneId } from './types';
 
 export interface SceneTheme {
   sky: [string, string];
   ground: string;
-  props: { emoji: string; x: number; y: number; size: number }[];
-  celestial?: { emoji: string; x: number; y: number; size: number };
+  props: { fn: PropFn; x: number; y: number; s: number }[];
+  /** 该场景里的障碍物造型（草图与游戏保持一致） */
+  obstacle: PropFn;
 }
 
 const W = 480;
@@ -17,234 +26,264 @@ const H = 320;
 const GROUND_Y = 240;
 
 export const SCENE_THEMES: Record<string, SceneTheme> = {
-  forest: {
-    sky: ['#c7f0d8', '#eafff0'], ground: '#7ccf8f',
+  meadow: {
+    sky: ['#AEE7FF', '#EAF9FF'], ground: '#9BDB7E', obstacle: rock,
     props: [
-      { emoji: '🌲', x: 60, y: GROUND_Y, size: 56 }, { emoji: '🌳', x: 420, y: GROUND_Y, size: 52 },
-      { emoji: '🍄', x: 150, y: GROUND_Y + 30, size: 26 },
+      { fn: sun, x: 420, y: 58, s: 1 }, { fn: cloud, x: 120, y: 62, s: 0.9 },
+      { fn: cloud, x: 300, y: 44, s: 0.7 }, { fn: treeRound, x: 52, y: 224, s: 1.1 },
+      { fn: flower, x: 120, y: 280, s: 0.8 }, { fn: flower, x: 424, y: 276, s: 0.9 },
     ],
-    celestial: { emoji: '☀️', x: 420, y: 60, size: 40 },
+  },
+  forest: {
+    sky: ['#D5F3DC', '#F1FFF4'], ground: '#8FCB84', obstacle: rock,
+    props: [
+      { fn: pine, x: 58, y: 226, s: 1.2 }, { fn: treeRound, x: 430, y: 222, s: 1.1 },
+      { fn: mushroom, x: 150, y: 276, s: 0.8 }, { fn: cloud, x: 300, y: 54, s: 0.8 },
+      { fn: sun, x: 420, y: 58, s: 0.9 },
+    ],
   },
   space: {
-    sky: ['#1e1b4b', '#4c1d95'], ground: '#6d28d9',
+    sky: ['#2B2A5E', '#4B3F8C'], ground: '#6D5FC7', obstacle: rock,
     props: [
-      { emoji: '⭐', x: 80, y: 70, size: 22 }, { emoji: '✨', x: 300, y: 50, size: 20 },
-      { emoji: '🪐', x: 400, y: 90, size: 40 }, { emoji: '⭐', x: 200, y: 110, size: 16 },
+      { fn: star5, x: 80, y: 70, s: 0.5 }, { fn: sparkle, x: 300, y: 52, s: 0.9 },
+      { fn: planet, x: 400, y: 88, s: 1 }, { fn: star5, x: 200, y: 112, s: 0.35 },
+      { fn: star5, x: 350, y: 150, s: 0.3 }, { fn: crater, x: 150, y: 288, s: 1 },
     ],
-    celestial: { emoji: '🌍', x: 60, y: 150, size: 34 },
-  },
-  school: {
-    sky: ['#bfdbfe', '#e0f2fe'], ground: '#fbbf77',
-    props: [{ emoji: '🏫', x: 90, y: GROUND_Y - 4, size: 64 }, { emoji: '🎒', x: 400, y: GROUND_Y + 26, size: 30 }],
-    celestial: { emoji: '☀️', x: 420, y: 60, size: 40 },
   },
   sea: {
-    sky: ['#7dd3fc', '#0ea5e9'], ground: '#0369a1',
+    sky: ['#8FDFF7', '#31A8DE'], ground: '#1E7FB8', obstacle: coral,
     props: [
-      { emoji: '🐚', x: 100, y: GROUND_Y + 40, size: 26 }, { emoji: '🪸', x: 400, y: GROUND_Y + 30, size: 36 },
-      { emoji: '🫧', x: 320, y: 100, size: 24 }, { emoji: '🐠', x: 150, y: 140, size: 26 },
+      { fn: waves, x: 240, y: 120, s: 1 }, { fn: waves, x: 90, y: 78, s: 0.7 },
+      { fn: coral, x: 408, y: 276, s: 1.1 }, { fn: shell, x: 100, y: 288, s: 0.9 },
+      { fn: bubble, x: 320, y: 96, s: 0.5 }, { fn: bubble, x: 150, y: 142, s: 0.4 },
     ],
   },
   castle: {
-    sky: ['#e9d5ff', '#fdf2f8'], ground: '#c084fc',
-    props: [{ emoji: '🏰', x: 100, y: GROUND_Y - 6, size: 70 }, { emoji: '🚩', x: 400, y: GROUND_Y + 10, size: 26 }],
-    celestial: { emoji: '🌈', x: 380, y: 70, size: 46 },
-  },
-  meadow: {
-    sky: ['#bae6fd', '#e0f2fe'], ground: '#86efac',
+    sky: ['#EFDFFF', '#FFF3FA'], ground: '#C9A6F0', obstacle: rock,
     props: [
-      { emoji: '🌼', x: 90, y: GROUND_Y + 40, size: 24 }, { emoji: '🌷', x: 420, y: GROUND_Y + 36, size: 26 },
-      { emoji: '☁️', x: 120, y: 60, size: 34 },
+      { fn: castleTower, x: 96, y: 218, s: 1.2 }, { fn: rainbowArc, x: 390, y: 84, s: 0.9 },
+      { fn: cloud, x: 220, y: 58, s: 0.8 }, { fn: flower, x: 432, y: 280, s: 0.8 },
     ],
-    celestial: { emoji: '☀️', x: 420, y: 56, size: 42 },
+  },
+  school: {
+    sky: ['#C4E1FF', '#EAF5FF'], ground: '#F3C98B', obstacle: cone,
+    props: [
+      { fn: schoolhouse, x: 96, y: 232, s: 1.2 }, { fn: sun, x: 420, y: 58, s: 1 },
+      { fn: cloud, x: 300, y: 60, s: 0.8 }, { fn: flower, x: 424, y: 280, s: 0.8 },
+    ],
   },
   desert: {
-    sky: ['#fed7aa', '#ffedd5'], ground: '#fbbf24',
-    props: [{ emoji: '🌵', x: 90, y: GROUND_Y + 6, size: 44 }, { emoji: '🐪', x: 410, y: GROUND_Y + 16, size: 36 }],
-    celestial: { emoji: '☀️', x: 400, y: 60, size: 44 },
+    sky: ['#FFE3B8', '#FFF4E0'], ground: '#F2C94C', obstacle: cactus,
+    props: [
+      { fn: sun, x: 408, y: 60, s: 1.1 }, { fn: cactus, x: 84, y: 252, s: 1 },
+      { fn: rock, x: 424, y: 290, s: 0.8 }, { fn: cloud, x: 230, y: 62, s: 0.6 },
+    ],
   },
   snow: {
-    sky: ['#dbeafe', '#f0f9ff'], ground: '#e2e8f0',
-    props: [{ emoji: '⛄', x: 100, y: GROUND_Y + 8, size: 44 }, { emoji: '🎿', x: 410, y: GROUND_Y + 26, size: 28 }, { emoji: '❄️', x: 300, y: 80, size: 22 }],
+    sky: ['#DBEBFF', '#F4FAFF'], ground: '#EAF1F7', obstacle: snowman,
+    props: [
+      { fn: snowman, x: 96, y: 260, s: 1.1 }, { fn: pine, x: 430, y: 226, s: 1 },
+      { fn: snowflake, x: 300, y: 82, s: 0.8 }, { fn: snowflake, x: 180, y: 122, s: 0.6 },
+      { fn: cloud, x: 380, y: 52, s: 0.8 },
+    ],
   },
   city: {
-    sky: ['#bfdbfe', '#dbeafe'], ground: '#94a3b8',
-    props: [{ emoji: '🏙️', x: 110, y: GROUND_Y - 10, size: 64 }, { emoji: '🚦', x: 410, y: GROUND_Y + 12, size: 30 }],
-    celestial: { emoji: '☀️', x: 420, y: 56, size: 38 },
+    sky: ['#C4E1FF', '#EAF6FF'], ground: '#B0BCCB', obstacle: cone,
+    props: [
+      { fn: building, x: 84, y: 236, s: 1.1 }, { fn: building, x: 146, y: 248, s: 0.8 },
+      { fn: sun, x: 420, y: 56, s: 0.9 }, { fn: cloud, x: 300, y: 52, s: 0.8 },
+      { fn: cone, x: 426, y: 290, s: 0.7 },
+    ],
   },
   volcano: {
-    sky: ['#fecaca', '#fed7aa'], ground: '#a8552f',
-    props: [{ emoji: '🌋', x: 110, y: GROUND_Y - 8, size: 64 }, { emoji: '🪨', x: 400, y: GROUND_Y + 26, size: 26 }],
+    sky: ['#FFD1C4', '#FFE9D6'], ground: '#B0684A', obstacle: rock,
+    props: [
+      { fn: volcanoMt, x: 104, y: 238, s: 1.3 }, { fn: rock, x: 404, y: 290, s: 0.8 },
+      { fn: cloud, x: 320, y: 62, s: 0.7 },
+    ],
   },
   sky: {
-    sky: ['#93c5fd', '#e0f2fe'], ground: '#f1f5f9',
-    props: [{ emoji: '☁️', x: 90, y: 100, size: 40 }, { emoji: '☁️', x: 380, y: 70, size: 34 }, { emoji: '🎈', x: 300, y: 120, size: 26 }],
-    celestial: { emoji: '☀️', x: 430, y: 50, size: 40 },
+    sky: ['#9FD9FF', '#E8F7FF'], ground: '#F2F7FC', obstacle: cloud,
+    props: [
+      { fn: cloud, x: 90, y: 112, s: 1.1 }, { fn: cloud, x: 390, y: 82, s: 0.9 },
+      { fn: balloonProp, x: 300, y: 116, s: 0.8 }, { fn: sun, x: 432, y: 52, s: 1 },
+    ],
   },
   candy: {
-    sky: ['#fbcfe8', '#fdf2f8'], ground: '#f9a8d4',
-    props: [{ emoji: '🍭', x: 90, y: GROUND_Y + 4, size: 42 }, { emoji: '🧁', x: 410, y: GROUND_Y + 20, size: 34 }, { emoji: '🍬', x: 300, y: 100, size: 24 }],
+    sky: ['#FFD9EC', '#FFF3FA'], ground: '#F8A8CF', obstacle: lollipop,
+    props: [
+      { fn: lollipop, x: 86, y: 244, s: 1.1 }, { fn: cupcake, x: 424, y: 280, s: 1 },
+      { fn: candy, x: 300, y: 98, s: 0.8 }, { fn: cloud, x: 175, y: 58, s: 0.8 },
+    ],
   },
   garden: {
-    sky: ['#d9f99d', '#f7fee7'], ground: '#86efac',
-    props: [{ emoji: '🌸', x: 90, y: GROUND_Y + 30, size: 30 }, { emoji: '🌻', x: 410, y: GROUND_Y + 24, size: 34 }, { emoji: '🐝', x: 300, y: 110, size: 22 }],
-    celestial: { emoji: '☀️', x: 420, y: 56, size: 40 },
+    sky: ['#E1F7C4', '#F9FFEF'], ground: '#9BDB7E', obstacle: mushroom,
+    props: [
+      { fn: flower, x: 88, y: 272, s: 1 }, { fn: flower, x: 420, y: 268, s: 1.1 },
+      { fn: mushroom, x: 300, y: 284, s: 0.7 }, { fn: sun, x: 420, y: 58, s: 1 },
+      { fn: cloud, x: 150, y: 62, s: 0.7 },
+    ],
   },
   moon: {
-    sky: ['#312e81', '#1e1b4b'], ground: '#cbd5e1',
-    props: [{ emoji: '⭐', x: 100, y: 70, size: 20 }, { emoji: '🌍', x: 400, y: 80, size: 36 }, { emoji: '🕳️', x: 150, y: GROUND_Y + 40, size: 26 }],
+    sky: ['#3A3468', '#241F49'], ground: '#CBD3DE', obstacle: rock,
+    props: [
+      { fn: star5, x: 100, y: 70, s: 0.4 }, { fn: planet, x: 400, y: 80, s: 0.9 },
+      { fn: crater, x: 150, y: 292, s: 1 }, { fn: crater, x: 380, y: 280, s: 1.2 },
+      { fn: moonProp, x: 60, y: 120, s: 0.8 }, { fn: star5, x: 300, y: 112, s: 0.3 },
+    ],
   },
   rainbow: {
-    sky: ['#cffafe', '#fdf2f8'], ground: '#a5f3fc',
-    props: [{ emoji: '🌈', x: 240, y: 90, size: 90 }, { emoji: '☁️', x: 90, y: 120, size: 32 }, { emoji: '☁️', x: 390, y: 120, size: 32 }],
+    sky: ['#D8F7FF', '#FFF4FB'], ground: '#A5E8F5', obstacle: cloud,
+    props: [
+      { fn: rainbowArc, x: 240, y: 112, s: 1.6 }, { fn: cloud, x: 95, y: 132, s: 0.9 },
+      { fn: cloud, x: 385, y: 132, s: 0.9 }, { fn: sparkle, x: 300, y: 58, s: 0.8 },
+    ],
   },
 };
 
-const TONE_ACCENT: Record<ToneId, { frame: string; banner: string }> = {
-  cute: { frame: '#f9a8d4', banner: '#ec4899' },
-  cool: { frame: '#67e8f9', banner: '#0891b2' },
-  mystery: { frame: '#c4b5fd', banner: '#7c3aed' },
-  funny: { frame: '#fde047', banner: '#f59e0b' },
-  lively: { frame: '#86efac', banner: '#16a34a' },
+export const TONE_ACCENT: Record<ToneId, { frame: string; banner: string }> = {
+  cute: { frame: '#F8B8D4', banner: '#EE6FA8' },
+  cool: { frame: '#7FD8E8', banner: '#1FA8C4' },
+  mystery: { frame: '#C4B2F2', banner: '#8B6FD8' },
+  funny: { frame: '#FFD976', banner: '#F2A93B' },
+  lively: { frame: '#9FE3A8', banner: '#3FAE5A' },
 };
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-function emojiText(emoji: string, x: number, y: number, size: number, extra = ''): string {
-  return `<text x="${x}" y="${y}" font-size="${size}" text-anchor="middle" dominant-baseline="middle" ${extra}>${esc(emoji)}</text>`;
+export function themeOf(sceneId: string | undefined): SceneTheme {
+  return SCENE_THEMES[sceneId ?? 'meadow'] ?? SCENE_THEMES.meadow;
 }
 
-/** 自定义主角（词库外的词）画成一个带名字的星星小生物 */
-function customHero(x: number, y: number, size: number, label: string): string {
-  const r = size * 0.55;
+/** 角色立绘：x 为中心、gy 为脚底所在的地面线 */
+function charAt(subjectId: string | undefined, x: number, gy: number, size: number): string {
+  const k = size / 120;
+  return `<g transform="translate(${x - 60 * k} ${gy - 112 * k}) scale(${k})">${characterMarkup(subjectId)}</g>`;
+}
+
+/** 自定义主角的名字牌 */
+function nameTag(x: number, y: number, label: string): string {
+  const w = Math.max(56, label.length * 18 + 20);
   return `
-    <g>
-      <circle cx="${x}" cy="${y}" r="${r}" fill="#fef3c7" stroke="#f59e0b" stroke-width="4"/>
-      ${emojiText('✨', x, y - r * 0.9, size * 0.5)}
-      <circle cx="${x - r * 0.3}" cy="${y - r * 0.15}" r="${r * 0.09}" fill="#78350f"/>
-      <circle cx="${x + r * 0.3}" cy="${y - r * 0.15}" r="${r * 0.09}" fill="#78350f"/>
-      <path d="M ${x - r * 0.25} ${y + r * 0.25} Q ${x} ${y + r * 0.5} ${x + r * 0.25} ${y + r * 0.25}" stroke="#78350f" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <text x="${x}" y="${y + r + 18}" font-size="16" text-anchor="middle" fill="#92400e" font-weight="bold">${esc(label)}</text>
-    </g>`;
+    <rect x="${x - w / 2}" y="${y}" width="${w}" height="26" rx="13" fill="#fff" stroke="${INK}" stroke-width="2.5"/>
+    <text x="${x}" y="${y + 18}" font-size="15" text-anchor="middle" fill="${INK}"
+      font-family="'ZCOOL KuaiLe','PingFang SC',sans-serif">${esc(label)}</text>`;
+}
+
+/** 火苗（喷火细节 & 徽章用） */
+function flameShape(x: number, y: number, s: number): string {
+  return `<g transform="translate(${x} ${y}) scale(${s})">
+    <path d="M 0 -16 Q 10 -6 8 4 Q 7 14 0 14 Q -7 14 -8 4 Q -10 -6 0 -16" fill="${P.coral}" stroke="${INK}" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M 0 -6 Q 5 0 4 6 Q 3 10 0 10 Q -3 10 -4 6 Q -5 0 0 -6" fill="${P.sunshine}" stroke="none"/>
+  </g>`;
 }
 
 function detailFx(profile: SlotProfile, hx: number, hy: number, hsize: number): string {
   const d = profile.key_detail;
   if (!d) return '';
+  const r = hsize / 2;
   switch (d.effect) {
     case 'fire':
-      // 🦖 这类 emoji 朝左，火要喷在嘴前
-      return emojiText('🔥', hx - hsize * 0.72, hy - hsize * 0.1, hsize * 0.5) +
-        emojiText('🔥', hx - hsize * 0.95, hy + hsize * 0.05, hsize * 0.34);
+      return flameShape(hx + r - 4, hy + 8, 1.1) + flameShape(hx + r + 14, hy + 16, 0.7);
     case 'fly':
-      return emojiText('🪽', hx - hsize * 0.6, hy - hsize * 0.4, hsize * 0.5) +
-        emojiText('☁️', hx, hy + hsize * 0.7, hsize * 0.4);
+      return `
+        <path d="M ${hx - r - 4} ${hy - 10} Q ${hx - r - 30} ${hy - 26} ${hx - r - 26} ${hy + 2} Q ${hx - r - 12} ${hy + 6} ${hx - r - 4} ${hy - 4}" fill="#fff" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>
+        <path d="M ${hx + r + 4} ${hy - 10} Q ${hx + r + 30} ${hy - 26} ${hx + r + 26} ${hy + 2} Q ${hx + r + 12} ${hy + 6} ${hx + r + 4} ${hy - 4}" fill="#fff" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`;
     case 'glow':
-      return `<circle cx="${hx}" cy="${hy}" r="${hsize * 0.85}" fill="#fef08a" opacity="0.45"/>`;
+      return `<circle cx="${hx}" cy="${hy}" r="${r + 16}" fill="${P.butter}" opacity="0.5"/>`;
     case 'rainbow':
-      return emojiText('🌈', hx - hsize * 0.9, hy + hsize * 0.1, hsize * 0.6);
+      return rainbowArc(hx - r - 30, hy - 6, 0.55);
     case 'speed':
-      return `<g stroke="#38bdf8" stroke-width="5" stroke-linecap="round" opacity="0.8">
-        <line x1="${hx - hsize * 1.2}" y1="${hy - 12}" x2="${hx - hsize * 0.7}" y2="${hy - 12}"/>
-        <line x1="${hx - hsize * 1.35}" y1="${hy + 6}" x2="${hx - hsize * 0.75}" y2="${hy + 6}"/>
-        <line x1="${hx - hsize * 1.15}" y1="${hy + 24}" x2="${hx - hsize * 0.7}" y2="${hy + 24}"/>
+      return `<g stroke="${P.sky}" stroke-width="5" stroke-linecap="round" opacity="0.9">
+        <line x1="${hx - r - 44}" y1="${hy - 14}" x2="${hx - r - 12}" y2="${hy - 14}"/>
+        <line x1="${hx - r - 54}" y1="${hy + 2}" x2="${hx - r - 16}" y2="${hy + 2}"/>
+        <line x1="${hx - r - 40}" y1="${hy + 18}" x2="${hx - r - 10}" y2="${hy + 18}"/>
       </g>`;
     case 'sparkle':
-      return emojiText('✨', hx - hsize * 0.7, hy - hsize * 0.5, hsize * 0.4) +
-        emojiText('✨', hx + hsize * 0.7, hy - hsize * 0.35, hsize * 0.32);
+      return sparkle(hx - r - 14, hy - r, 1) + sparkle(hx + r + 14, hy - r + 12, 0.7) + star5(hx + r + 4, hy - r - 14, 0.4);
     default:
       return '';
   }
 }
 
-/** 与游戏运行时保持一致的场景化障碍物（草图是承诺，成品要兑现） */
-export function obstacleFor(sceneId: string | undefined): string {
-  return (
-    ({ sea: '🪸', volcano: '🪨', snow: '⛄', candy: '🍭', space: '🪨', city: '🚧' } as Record<string, string>)[
-      sceneId ?? ''
-    ] ?? '🌵'
-  );
-}
-
 function mechanicLayer(profile: SlotProfile, final: boolean): string {
   const m = profile.mechanic;
+  const theme = themeOf(profile.scene?.id);
   const parts: string[] = [];
-  const obs = obstacleFor(profile.scene?.id);
   if (m === 'race') {
-    parts.push(`<line x1="20" y1="${GROUND_Y + 42}" x2="${W - 20}" y2="${GROUND_Y + 42}" stroke="#fff" stroke-width="4" stroke-dasharray="18 12" opacity="0.9"/>`);
-    parts.push(emojiText('🏁', W - 50, GROUND_Y - 4, 42));
-    if (final) parts.push(emojiText('🏆', W - 50, GROUND_Y - 52, 30));
+    parts.push(`<line x1="20" y1="${GROUND_Y + 44}" x2="${W - 20}" y2="${GROUND_Y + 44}" stroke="#fff" stroke-width="4" stroke-dasharray="18 12" opacity="0.9"/>`);
+    parts.push(flagCheck(W - 52, GROUND_Y + 8, 1));
+    if (final) parts.push(trophy(W - 52, GROUND_Y - 52, 0.9));
   } else if (m === 'collect') {
-    const xs = [150, 230, 310, 390];
-    xs.forEach((x, i) => parts.push(emojiText('⭐', x, 130 + (i % 2) * 42, 30)));
-    if (final) parts.push(emojiText('🧺', W - 60, GROUND_Y + 30, 34));
+    const spots: [number, number][] = [[170, 128], [250, 168], [330, 122], [400, 160]];
+    spots.forEach(([x, y], i) => parts.push(star5(x, y, 0.7 + (i % 2) * 0.15)));
+    if (final) parts.push(basket(W - 60, GROUND_Y + 46, 1.1), coin(220, 96, 0.7));
   } else if (m === 'dodge') {
-    parts.push(emojiText(obs, 240, 100, 32));
-    parts.push(emojiText(obs, 340, 70, 26));
-    parts.push(`<g stroke="#f87171" stroke-width="4" stroke-linecap="round" opacity="0.8">
-      <line x1="240" y1="122" x2="240" y2="152"/><path d="M 232 144 L 240 156 L 248 144" fill="none"/>
+    parts.push(theme.obstacle(250, 96, 0.8));
+    parts.push(theme.obstacle(346, 66, 0.6));
+    parts.push(`<g stroke="${P.coral}" stroke-width="4" stroke-linecap="round" opacity="0.85">
+      <line x1="250" y1="122" x2="250" y2="152"/><path d="M 242 144 L 250 156 L 258 144" fill="none"/>
     </g>`);
   } else if (m === 'jump') {
-    parts.push(emojiText(obs, 250, GROUND_Y + 8, 36));
-    parts.push(emojiText(obs, 360, GROUND_Y + 8, 36));
-    parts.push(`<path d="M 140 ${GROUND_Y - 30} Q 200 ${GROUND_Y - 110} 258 ${GROUND_Y - 36}" stroke="#94a3b8" stroke-width="4" stroke-dasharray="8 8" fill="none"/>`);
+    parts.push(theme.obstacle(258, GROUND_Y + 16, 0.9));
+    parts.push(theme.obstacle(368, GROUND_Y + 16, 0.9));
+    parts.push(`<path d="M 150 ${GROUND_Y - 20} Q 205 ${GROUND_Y - 108} 262 ${GROUND_Y - 28}" stroke="#fff" stroke-width="4" stroke-dasharray="8 8" fill="none" opacity="0.9"/>`);
   } else if (m === 'pop') {
-    const spots: [number, number, number][] = [[220, 110, 34], [320, 150, 28], [390, 90, 30], [260, 190, 24]];
-    spots.forEach(([x, y, s]) => parts.push(emojiText('🫧', x, y, s)));
-    if (final) parts.push(emojiText('👆', 320, 190, 30));
+    const spots: [number, number, number][] = [[230, 108, 1.1], [320, 152, 0.9], [392, 92, 1], [268, 192, 0.75]];
+    spots.forEach(([x, y, s]) => {
+      parts.push(bubble(x, y, s * 1.4));
+      parts.push(star5(x, y, s * 0.45));
+    });
   }
   return parts.join('');
 }
 
 export interface SketchOptions {
   quality: 'draft' | 'final';
-  /** 唯一 id 前缀，避免并排两张图的 SVG filter id 冲突 */
+  /** 唯一 id 前缀，避免并排两张图的 SVG defs id 冲突 */
   uid: string;
   title?: string;
 }
 
 /** 由槽位生成一张草图/终稿 SVG（字符串，直接注入 DOM） */
 export function sketchSVG(profile: SlotProfile, opts: SketchOptions): string {
-  const theme = SCENE_THEMES[profile.scene?.id ?? 'meadow'] ?? SCENE_THEMES.meadow;
+  const theme = themeOf(profile.scene?.id);
   const tone = TONE_ACCENT[profile.tone ?? 'lively'];
   const final = opts.quality === 'final';
   const uid = opts.uid;
 
-  const hx = 120;
-  const hy = GROUND_Y - 26;
-  const hsize = final ? 78 : 68;
+  const hx = 122;
+  const gy = GROUND_Y + 36;
+  const hsize = final ? 118 : 106;
+  const hy = gy - hsize * 0.55;
 
-  const hero = profile.subject?.custom
-    ? customHero(hx, hy, hsize, profile.subject.label)
-    : emojiText(profile.subject?.emoji ?? '✨', hx, hy, hsize);
-
+  const hero = charAt(profile.subject?.id, hx, gy, hsize) +
+    (profile.subject?.custom ? nameTag(hx, gy + 6, profile.subject.label) : '');
   const companion = profile.companion
-    ? emojiText(profile.companion.emoji, hx + 92, hy + 14, hsize * 0.62)
+    ? charAt(profile.companion.id, hx + 84, gy + 2, hsize * 0.66)
     : '';
 
   const props = theme.props
-    .map((p) => emojiText(p.emoji, p.x, p.y, final ? p.size : p.size * 0.9))
+    .map((p) => p.fn(p.x, p.y, final ? p.s : p.s * 0.94))
     .join('');
-  const celestial = theme.celestial
-    ? emojiText(theme.celestial.emoji, theme.celestial.x, theme.celestial.y, theme.celestial.size)
-    : '';
 
   const roughFilter = final
     ? ''
-    : `<filter id="${uid}-rough"><feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter>`;
+    : `<filter id="${uid}-rough"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>`;
   const groupFilter = final ? '' : `filter="url(#${uid}-rough)"`;
 
   const banner = final && opts.title
     ? `<g>
-        <rect x="${W / 2 - 150}" y="14" width="300" height="44" rx="22" fill="${tone.banner}" opacity="0.92"/>
-        <text x="${W / 2}" y="42" font-size="21" text-anchor="middle" fill="#fff" font-weight="bold">${esc(opts.title)}</text>
+        <rect x="${W / 2 - 150}" y="14" width="300" height="46" rx="23" fill="${tone.banner}" stroke="${INK}" stroke-width="3"/>
+        <text x="${W / 2}" y="45" font-size="23" text-anchor="middle" fill="#fff"
+          font-family="'ZCOOL KuaiLe','PingFang SC',sans-serif">${esc(opts.title)}</text>
       </g>`
     : '';
 
   const frame = final
-    ? `<rect x="4" y="4" width="${W - 8}" height="${H - 8}" rx="20" fill="none" stroke="${tone.frame}" stroke-width="8"/>`
-    : `<rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="16" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="12 10"/>`;
+    ? `<rect x="5" y="5" width="${W - 10}" height="${H - 10}" rx="22" fill="none" stroke="${tone.frame}" stroke-width="9"/>`
+    : `<rect x="7" y="7" width="${W - 14}" height="${H - 14}" rx="18" fill="none" stroke="#D8D2C4" stroke-width="3" stroke-dasharray="14 10"/>`;
 
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img">
     <defs>
@@ -253,11 +292,11 @@ export function sketchSVG(profile: SlotProfile, opts: SketchOptions): string {
       </linearGradient>
       ${roughFilter}
     </defs>
-    <rect width="${W}" height="${H}" fill="#fffdf5"/>
+    <rect width="${W}" height="${H}" fill="#FFFDF6"/>
     <g ${groupFilter}>
-      <rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="14" fill="url(#${uid}-sky)"/>
-      <rect x="8" y="${GROUND_Y}" width="${W - 16}" height="${H - GROUND_Y - 8}" rx="10" fill="${theme.ground}"/>
-      ${celestial}${props}
+      <rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="16" fill="url(#${uid}-sky)"/>
+      <path d="M 9 ${GROUND_Y} Q ${W / 4} ${GROUND_Y - 14} ${W / 2} ${GROUND_Y} Q ${W * 3 / 4} ${GROUND_Y + 12} ${W - 9} ${GROUND_Y - 4} L ${W - 9} ${H - 25} Q ${W - 9} ${H - 9} ${W - 25} ${H - 9} L 25 ${H - 9} Q 9 ${H - 9} 9 ${H - 25} Z" fill="${theme.ground}"/>
+      ${props}
       ${mechanicLayer(profile, final)}
       ${companion}
       ${hero}
@@ -281,3 +320,55 @@ export function workTitle(profile: SlotProfile): string {
   const noun = profile.mechanic ? mechanicMeta(profile.mechanic).titleNoun : '大冒险';
   return `${detail}${subject}${noun}`;
 }
+
+// ---------- 选项徽章（分歧界面 / 修正卡片用的小图） ----------
+
+const badgeWrap = (inner: string, vb = '0 0 96 96') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${inner}</svg>`;
+
+export function mechanicBadgeSVG(id: MechanicId): string {
+  switch (id) {
+    case 'race': return badgeWrap(flagCheck(48, 48, 1.4));
+    case 'collect': return badgeWrap(star5(48, 44, 1.6) + sparkle(76, 24, 0.9));
+    case 'dodge': return badgeWrap(
+      rock(56, 40, 1.2) +
+      `<g stroke="${P.coral}" stroke-width="5" stroke-linecap="round"><line x1="24" y1="62" x2="40" y2="76"/><line x1="56" y1="66" x2="56" y2="82"/></g>`);
+    case 'jump': return badgeWrap(
+      `<path d="M 16 76 Q 48 8 80 76" stroke="${P.teal}" stroke-width="5" stroke-dasharray="9 9" fill="none" stroke-linecap="round"/>` +
+      star5(48, 22, 0.8));
+    case 'pop': return badgeWrap(bubble(48, 44, 2.2) + star5(48, 44, 0.8) +
+      `<path d="M 74 70 L 86 84" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>`);
+  }
+}
+
+/** 场景小样：迷你天空 + 地面 + 标志道具 */
+export function sceneBadgeSVG(sceneId: string): string {
+  const t = themeOf(sceneId);
+  const lead = t.props[0];
+  return badgeWrap(`
+    <defs><linearGradient id="sb-${sceneId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${t.sky[0]}"/><stop offset="1" stop-color="${t.sky[1]}"/>
+    </linearGradient></defs>
+    <rect x="4" y="4" width="88" height="88" rx="18" fill="url(#sb-${sceneId})" stroke="${INK}" stroke-width="3"/>
+    <path d="M 4 66 Q 48 56 92 66 L 92 74 Q 92 92 74 92 L 22 92 Q 4 92 4 74 Z" fill="${t.ground}"/>
+    ${lead.fn(48, 56, Math.min(1.1, lead.s))}
+  `);
+}
+
+export function difficultyBadgeSVG(hard: boolean): string {
+  const stars = hard
+    ? star5(28, 48, 1) + star5(48, 40, 1.2) + star5(68, 48, 1)
+    : star5(48, 46, 1.4);
+  return badgeWrap(stars);
+}
+
+export function toneBadgeSVG(tone: ToneId): string {
+  const a = TONE_ACCENT[tone];
+  return badgeWrap(`
+    <circle cx="36" cy="40" r="22" fill="${a.banner}" stroke="${INK}" stroke-width="3"/>
+    <circle cx="62" cy="56" r="16" fill="${a.frame}" stroke="${INK}" stroke-width="3"/>
+    ${sparkle(70, 28, 0.9)}
+  `);
+}
+
+export { flameShape };

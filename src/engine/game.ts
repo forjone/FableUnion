@@ -1,31 +1,68 @@
 // 深度构建模块（PRD 3.6）：由槽位 JSON 参数化生成可玩的 Canvas 小游戏。
-// 五种玩法模板（race/collect/dodge/jump/pop），主角/场景/基调/关键细节全部由槽位驱动。
+// 素材与草图共用同一套矢量插画（角色/道具栅格化后绘制），保证“草图承诺 = 成品兑现”。
 // 儿童友好原则：永不出现“失败惩罚”，最坏情况也只是打个趔趄再来。
 
-import { SCENE_THEMES, obstacleFor, workTitle } from './sketch';
-import type { GameSpec, SlotProfile, ToneId } from './types';
+import { characterSVG } from '../art/characters';
+import { star5 } from '../art/props';
+import { svgToImage, wrapPropSVG } from '../art/raster';
+import { SCENE_THEMES, TONE_ACCENT, themeOf, workTitle } from './sketch';
+import type { GameSpec, SlotProfile } from './types';
 
 export const GAME_W = 640;
 export const GAME_H = 400;
 const GROUND = 320;
-const SX = GAME_W / 480; // sketch 主题坐标 → 游戏坐标
+const SX = GAME_W / 480; // 草图主题坐标 → 游戏坐标
 const SY = GAME_H / 320;
-
-const TONE_ACCENT: Record<ToneId, string> = {
-  cute: '#ec4899', cool: '#0891b2', mystery: '#7c3aed', funny: '#f59e0b', lively: '#16a34a',
-};
 
 export function buildSpec(profile: SlotProfile): GameSpec {
   return {
     title: workTitle(profile),
     mechanic: profile.mechanic ?? 'race',
-    heroEmoji: profile.subject?.custom ? '✨' : profile.subject?.emoji ?? '🦖',
+    heroId: profile.subject?.id ?? 'star',
     heroLabel: profile.subject?.label ?? '小主角',
-    companionEmoji: profile.companion?.emoji ?? null,
+    companionId: profile.companion?.id ?? null,
     sceneId: profile.scene?.id ?? 'meadow',
     tone: profile.tone ?? 'lively',
     effect: profile.key_detail?.effect ?? null,
     difficulty: profile.difficulty,
+  };
+}
+
+// ---------- 素材集：把矢量插画栅格化给 Canvas 用 ----------
+
+export interface SpriteSet {
+  hero: HTMLImageElement;
+  companion: HTMLImageElement | null;
+  rivals: HTMLImageElement[];
+  item: HTMLImageElement;
+  obstacle: HTMLImageElement;
+  props: { img: HTMLImageElement; x: number; y: number; s: number }[];
+}
+
+const RIVAL_POOL = ['bunny', 'cat', 'dog', 'frog'];
+
+export async function loadSprites(spec: GameSpec): Promise<SpriteSet> {
+  const theme = themeOf(spec.sceneId);
+  const rivalIds = (spec.companionId ? [spec.companionId] : [])
+    .concat(RIVAL_POOL.filter((r) => r !== spec.heroId && r !== spec.companionId))
+    .slice(0, 2);
+  const [hero, companion, item, obstacle, ...rest] = await Promise.all([
+    svgToImage(characterSVG(spec.heroId, 160)),
+    spec.companionId ? svgToImage(characterSVG(spec.companionId, 160)) : Promise.resolve(null),
+    svgToImage(wrapPropSVG(star5(0, 0, 1.6))),
+    svgToImage(wrapPropSVG(theme.obstacle(0, 0, 1.5))),
+    ...rivalIds.map((r) => svgToImage(characterSVG(r, 160))),
+    ...theme.props.map((p) => svgToImage(wrapPropSVG(p.fn(0, 0, 1.1)))),
+  ]);
+  const rivals = rest.slice(0, rivalIds.length) as HTMLImageElement[];
+  const propImgs = rest.slice(rivalIds.length) as HTMLImageElement[];
+  return {
+    hero,
+    companion,
+    rivals,
+    item,
+    obstacle,
+    props: theme.props.map((p, i) => ({ img: propImgs[i], x: p.x * SX, y: p.y * SY, s: p.s })),
   };
 }
 
@@ -62,7 +99,8 @@ const sfx = {
 
 // ---------- 运行时 ----------
 
-interface Particle { x: number; y: number; vx: number; vy: number; life: number; emoji?: string; color?: string; size: number }
+type ParticleKind = 'flame' | 'spark' | 'puff' | 'dot';
+interface Particle { kind: ParticleKind; x: number; y: number; vx: number; vy: number; life: number; color?: string; size: number }
 type Control = 'left' | 'right' | 'action';
 
 export interface RuntimeHooks {
@@ -86,9 +124,9 @@ export class GameRuntime {
   // race
   private progress = 0;
   private speed = 0;
-  private rivals: { emoji: string; p: number; v: number }[] = [];
+  private rivals: { p: number; v: number }[] = [];
   // collect / dodge
-  private drops: { x: number; y: number; v: number; emoji: string; caught?: boolean }[] = [];
+  private drops: { x: number; y: number; v: number; isItem: boolean; caught?: boolean }[] = [];
   private score = 0;
   private surviveT = 0;
   // jump
@@ -105,7 +143,6 @@ export class GameRuntime {
   private hard: boolean;
   private accent: string;
   private theme: (typeof SCENE_THEMES)[string];
-  private obstacleEmoji: string;
 
   private keyDown = (e: KeyboardEvent) => {
     if (e.code === 'ArrowLeft') this.held.left = true;
@@ -127,21 +164,20 @@ export class GameRuntime {
   constructor(
     private canvas: HTMLCanvasElement,
     private spec: GameSpec,
+    private sprites: SpriteSet,
     private hooks: RuntimeHooks,
   ) {
     canvas.width = GAME_W;
     canvas.height = GAME_H;
     this.ctx = canvas.getContext('2d')!;
     this.hard = spec.difficulty === 'hard';
-    this.accent = TONE_ACCENT[spec.tone];
-    this.theme = SCENE_THEMES[spec.sceneId] ?? SCENE_THEMES.meadow;
-    this.obstacleEmoji = obstacleFor(spec.sceneId);
+    this.accent = TONE_ACCENT[spec.tone].banner;
+    this.theme = themeOf(spec.sceneId);
     this.goal = { race: 1, collect: this.hard ? 12 : 8, dodge: this.hard ? 22 : 15, jump: this.hard ? 10 : 6, pop: this.hard ? 15 : 10 }[
       spec.mechanic
     ];
     if (spec.mechanic === 'race') {
-      const rivalPool = spec.companionEmoji ? [spec.companionEmoji, '🐢'] : ['🐢', '🐰'];
-      this.rivals = rivalPool.map((emoji, i) => ({ emoji, p: 0, v: (this.hard ? 0.085 : 0.062) + i * 0.008 }));
+      this.rivals = this.sprites.rivals.map((_, i) => ({ p: 0, v: (this.hard ? 0.085 : 0.062) + i * 0.008 }));
       this.heroX = 70;
     }
     canvas.addEventListener('pointerdown', this.onPointer);
@@ -192,7 +228,7 @@ export class GameRuntime {
         if (this.spec.effect === 'fire') this.flame(this.heroX, GROUND - 20);
       } else if (this.spec.effect === 'fly' && this.heroVy > -80) {
         this.heroVy = -300; // 会飞：二段跳
-        this.puff(this.heroX, this.heroY + 20, '☁️');
+        this.puff(this.heroX, this.heroY + 20);
       }
     }
   }
@@ -205,7 +241,7 @@ export class GameRuntime {
           b.life = 0;
           this.score++;
           sfx.pop();
-          this.puff(b.x, b.y, '✨');
+          this.spark(b.x, b.y);
           if (this.score >= this.goal) this.win();
           return;
         }
@@ -260,7 +296,7 @@ export class GameRuntime {
           x: 40 + Math.random() * (GAME_W - 80),
           y: -20,
           v: (isCollect ? 130 : 150) * (this.hard ? 1.35 : 1),
-          emoji: isCollect ? '⭐' : this.obstacleEmoji,
+          isItem: isCollect,
         });
       }
       for (const d of this.drops) d.y += d.v * dt;
@@ -270,7 +306,7 @@ export class GameRuntime {
           if (isCollect) {
             this.score++;
             sfx.collect();
-            this.puff(d.x, d.y, '✨');
+            this.spark(d.x, d.y);
             if (this.score >= this.goal) this.win();
           } else {
             this.wobble = 0.8;
@@ -331,10 +367,11 @@ export class GameRuntime {
     sfx.win();
     for (let i = 0; i < 90; i++) {
       this.confetti.push({
+        kind: 'dot',
         x: GAME_W / 2, y: GAME_H / 2 - 40,
         vx: (Math.random() - 0.5) * 500, vy: -Math.random() * 420,
         life: 1.6 + Math.random(), size: 6 + Math.random() * 8,
-        color: ['#f472b6', '#facc15', '#4ade80', '#38bdf8', '#a78bfa'][i % 5],
+        color: ['#FF7E6B', '#FFC94D', '#7BC86C', '#7FD3F7', '#A78BFA'][i % 5],
       });
     }
     setTimeout(() => this.hooks.onWin(), 1500);
@@ -343,30 +380,69 @@ export class GameRuntime {
   // ---------- 粒子 ----------
 
   private flame(x: number, y: number) {
-    // 向后喷的加速尾焰
     for (let i = 0; i < 4; i++) {
-      this.particles.push({ x: x - 24, y, vx: -(90 + Math.random() * 60), vy: (Math.random() - 0.5) * 60, life: 0.4, emoji: '🔥', size: 18 + Math.random() * 10 });
+      this.particles.push({ kind: 'flame', x: x - 24, y, vx: -(90 + Math.random() * 60), vy: (Math.random() - 0.5) * 60, life: 0.4, size: 10 + Math.random() * 6 });
     }
   }
-  private puff(x: number, y: number, emoji: string) {
+  private spark(x: number, y: number) {
+    for (let i = 0; i < 6; i++) {
+      this.particles.push({ kind: 'spark', x, y, vx: (Math.random() - 0.5) * 180, vy: -Math.random() * 130, life: 0.5, size: 5 + Math.random() * 5, color: '#FFC94D' });
+    }
+  }
+  private puff(x: number, y: number) {
     for (let i = 0; i < 5; i++) {
-      this.particles.push({ x, y, vx: (Math.random() - 0.5) * 160, vy: -Math.random() * 120, life: 0.5, emoji, size: 14 + Math.random() * 8 });
+      this.particles.push({ kind: 'puff', x, y, vx: (Math.random() - 0.5) * 120, vy: -Math.random() * 80, life: 0.5, size: 7 + Math.random() * 6 });
     }
   }
   private trail(x: number, y: number) {
-    this.particles.push({ x, y: y + 16, vx: -40, vy: 20, life: 0.5, size: 8, color: ['#f472b6', '#facc15', '#4ade80', '#38bdf8'][Math.floor(this.t * 10) % 4] });
+    this.particles.push({ kind: 'dot', x, y: y + 16, vx: -40, vy: 20, life: 0.5, size: 8, color: ['#FF7E6B', '#FFC94D', '#7BC86C', '#7FD3F7'][Math.floor(this.t * 10) % 4] });
   }
 
   private heroXOnTrack() { return 70 + this.progress * (GAME_W - 150); }
 
   // ---------- 渲染 ----------
 
-  private emoji(e: string, x: number, y: number, size: number) {
+  private img(image: HTMLImageElement, x: number, y: number, size: number) {
+    this.ctx.drawImage(image, x - size / 2, y - size / 2, size, size);
+  }
+
+  private drawParticle(p: Particle) {
     const c = this.ctx;
-    c.font = `${size}px "Segoe UI Emoji", "Noto Color Emoji", serif`;
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText(e, x, y);
+    const a = Math.min(1, p.life * 2.5);
+    c.globalAlpha = a;
+    if (p.kind === 'flame') {
+      c.fillStyle = '#FF7E6B';
+      c.beginPath();
+      c.moveTo(p.x, p.y - p.size);
+      c.quadraticCurveTo(p.x + p.size * 0.8, p.y, p.x, p.y + p.size * 0.7);
+      c.quadraticCurveTo(p.x - p.size * 0.8, p.y, p.x, p.y - p.size);
+      c.fill();
+      c.fillStyle = '#FFC94D';
+      c.beginPath();
+      c.arc(p.x, p.y + p.size * 0.15, p.size * 0.4, 0, Math.PI * 2);
+      c.fill();
+    } else if (p.kind === 'spark') {
+      c.fillStyle = p.color ?? '#FFC94D';
+      c.beginPath();
+      const s = p.size;
+      c.moveTo(p.x, p.y - s);
+      c.quadraticCurveTo(p.x + s * 0.25, p.y - s * 0.25, p.x + s, p.y);
+      c.quadraticCurveTo(p.x + s * 0.25, p.y + s * 0.25, p.x, p.y + s);
+      c.quadraticCurveTo(p.x - s * 0.25, p.y + s * 0.25, p.x - s, p.y);
+      c.quadraticCurveTo(p.x - s * 0.25, p.y - s * 0.25, p.x, p.y - s);
+      c.fill();
+    } else if (p.kind === 'puff') {
+      c.fillStyle = 'rgba(255,255,255,0.85)';
+      c.beginPath();
+      c.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      c.fill();
+    } else {
+      c.fillStyle = p.color ?? '#fff';
+      c.beginPath();
+      c.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.globalAlpha = 1;
   }
 
   private render() {
@@ -379,12 +455,17 @@ export class GameRuntime {
     c.fillStyle = g;
     c.fillRect(0, 0, GAME_W, GAME_H);
     c.fillStyle = th.ground;
-    c.fillRect(0, GROUND, GAME_W, GAME_H - GROUND);
-    if (th.celestial) this.emoji(th.celestial.emoji, th.celestial.x * SX, th.celestial.y * SY, th.celestial.size);
-    for (const p of th.props) this.emoji(p.emoji, p.x * SX, p.y * SY, p.size * 0.9);
+    c.beginPath();
+    c.moveTo(0, GROUND);
+    c.quadraticCurveTo(GAME_W / 4, GROUND - 14, GAME_W / 2, GROUND);
+    c.quadraticCurveTo((GAME_W * 3) / 4, GROUND + 12, GAME_W, GROUND - 4);
+    c.lineTo(GAME_W, GAME_H);
+    c.lineTo(0, GAME_H);
+    c.fill();
+    for (const p of this.sprites.props) this.img(p.img, p.x, p.y, 96 * p.s);
 
     const m = this.spec.mechanic;
-    const heroSize = 52;
+    const heroSize = 76;
     let hx = this.heroX;
     let hy = this.heroY;
 
@@ -392,94 +473,114 @@ export class GameRuntime {
       c.strokeStyle = 'rgba(255,255,255,0.85)';
       c.lineWidth = 4;
       c.setLineDash([20, 14]);
-      for (let lane = 0; lane < 3; lane++) {
-        c.beginPath();
-        c.moveTo(30, GROUND + 18 + lane * 0); // 单线跑道即可
-      }
       c.beginPath();
-      c.moveTo(20, GROUND + 40);
-      c.lineTo(GAME_W - 20, GROUND + 40);
+      c.moveTo(20, GROUND + 44);
+      c.lineTo(GAME_W - 20, GROUND + 44);
       c.stroke();
       c.setLineDash([]);
-      this.emoji('🏁', GAME_W - 45, GROUND - 30, 44);
-      this.rivals.forEach((r, i) => this.emoji(r.emoji, 70 + r.p * (GAME_W - 150), GROUND - 90 - i * 46, 38));
+      // 终点旗
+      c.strokeStyle = '#413A5C';
+      c.lineWidth = 4;
+      c.beginPath();
+      c.moveTo(GAME_W - 40, GROUND - 66);
+      c.lineTo(GAME_W - 40, GROUND + 10);
+      c.stroke();
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
+        c.fillStyle = (i + j) % 2 === 0 ? '#413A5C' : '#fff';
+        c.fillRect(GAME_W - 40 + i * 9, GROUND - 66 + j * 9, 9, 9);
+      }
+      this.rivals.forEach((r, i) =>
+        this.img(this.sprites.rivals[i], 70 + r.p * (GAME_W - 150), GROUND - 96 - i * 56, 52));
       hx = this.heroXOnTrack();
       hy = GROUND - 34;
     } else if (m === 'collect' || m === 'dodge') {
-      for (const d of this.drops) this.emoji(d.emoji, d.x, d.y, 34);
+      for (const d of this.drops) this.img(d.isItem ? this.sprites.item : this.sprites.obstacle, d.x, d.y, 40);
       hy = GROUND - 30;
     } else if (m === 'jump') {
-      for (const o of this.obstacles) this.emoji(this.obstacleEmoji, o.x - this.scroll, GROUND - 22, 40);
+      for (const o of this.obstacles) this.img(this.sprites.obstacle, o.x - this.scroll, GROUND - 24, 48);
       hx = this.heroX;
     } else if (m === 'pop') {
       for (const b of this.bubbles) {
         if (b.life <= 0) continue;
         c.globalAlpha = Math.max(0.25, Math.min(1, b.life));
-        c.fillStyle = 'rgba(255,255,255,0.45)';
+        c.fillStyle = 'rgba(255,255,255,0.4)';
         c.beginPath();
         c.arc(b.x, b.y, b.r, 0, Math.PI * 2);
         c.fill();
-        c.strokeStyle = 'rgba(255,255,255,0.9)';
+        c.strokeStyle = 'rgba(255,255,255,0.95)';
         c.lineWidth = 3;
         c.stroke();
-        this.emoji('⭐', b.x, b.y, b.r * 0.9);
+        this.img(this.sprites.item, b.x, b.y, b.r * 1.1);
         c.globalAlpha = 1;
       }
       hy = GROUND - 30;
       hx = GAME_W / 2;
     }
 
-    // 特效光环/翅膀
+    // 特效
     if (this.spec.effect === 'glow') {
-      c.fillStyle = 'rgba(254,240,138,0.5)';
+      c.fillStyle = 'rgba(255,226,154,0.55)';
       c.beginPath();
-      c.arc(hx, hy, heroSize * 0.85, 0, Math.PI * 2);
+      c.arc(hx, hy, heroSize * 0.72, 0, Math.PI * 2);
       c.fill();
     }
-    if (this.spec.effect === 'fly') this.emoji('🪽', hx - 34, hy - 18, 30);
+    if (this.spec.effect === 'fly') {
+      c.fillStyle = '#fff';
+      c.strokeStyle = '#413A5C';
+      c.lineWidth = 2.5;
+      const flap = Math.sin(this.t * 12) * 6;
+      for (const side of [-1, 1]) {
+        c.beginPath();
+        c.ellipse(hx + side * (heroSize * 0.52), hy - 8 + flap * 0.4, 16, 9, side * 0.5, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+      }
+    }
 
     // 主角（打趔趄时晃一晃）
     const shake = this.wobble > 0 ? Math.sin(this.t * 40) * 5 : 0;
-    this.emoji(this.spec.heroEmoji, hx + shake, hy, heroSize);
-    if (this.spec.heroEmoji === '✨') {
-      c.fillStyle = '#92400e';
-      c.font = 'bold 15px sans-serif';
-      c.fillText(this.spec.heroLabel, hx, hy - 42);
+    const bob = m === 'pop' || m === 'collect' || m === 'dodge' ? Math.sin(this.t * 5) * 3 : 0;
+    this.img(this.sprites.hero, hx + shake, hy + bob, heroSize);
+    if (this.spec.heroId.startsWith('custom:')) {
+      c.fillStyle = '#fff';
+      c.strokeStyle = '#413A5C';
+      c.lineWidth = 2.5;
+      const label = this.spec.heroLabel;
+      const w = Math.max(52, label.length * 18 + 16);
+      this.roundRect(hx - w / 2, hy - heroSize * 0.78 - 14, w, 24, 12);
+      c.fill();
+      c.stroke();
+      c.fillStyle = '#413A5C';
+      c.font = '15px "ZCOOL KuaiLe", sans-serif';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(label, hx, hy - heroSize * 0.78 - 2);
     }
-    if (this.spec.effect === 'sparkle' && Math.random() < 0.15) this.puff(hx, hy - 20, '✨');
+    if (this.spec.effect === 'sparkle' && Math.random() < 0.15) this.spark(hx, hy - 20);
 
-    // 粒子
-    for (const p of this.particles) {
-      if (p.emoji) this.emoji(p.emoji, p.x, p.y, p.size);
-      else {
-        c.fillStyle = p.color ?? '#fff';
-        c.beginPath();
-        c.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
-        c.fill();
-      }
-    }
+    for (const p of this.particles) this.drawParticle(p);
 
     this.renderHud();
 
     if (this.won) {
-      c.fillStyle = 'rgba(255,255,255,0.55)';
+      c.fillStyle = 'rgba(255,253,246,0.6)';
       c.fillRect(0, 0, GAME_W, GAME_H);
       for (const p of this.confetti) {
         c.fillStyle = p.color!;
         c.fillRect(p.x, p.y, p.size, p.size);
       }
-      this.emoji('🎉', GAME_W / 2, GAME_H / 2 - 46, 84);
+      this.img(this.sprites.hero, GAME_W / 2, GAME_H / 2 - 58, 110);
       c.fillStyle = this.accent;
-      c.font = 'bold 40px sans-serif';
+      c.font = '44px "ZCOOL KuaiLe", sans-serif';
       c.textAlign = 'center';
-      c.fillText('你赢啦！', GAME_W / 2, GAME_H / 2 + 40);
+      c.textBaseline = 'middle';
+      c.fillText('你赢啦！', GAME_W / 2, GAME_H / 2 + 52);
     }
   }
 
   private renderHud() {
     const c = this.ctx;
     const m = this.spec.mechanic;
-    // 进度条（所有玩法统一的“离胜利有多近”）
     let ratio = 0;
     if (m === 'race') ratio = this.progress;
     else if (m === 'collect' || m === 'pop') ratio = this.score / this.goal;
@@ -487,21 +588,26 @@ export class GameRuntime {
     else if (m === 'jump') ratio = this.passed / this.goal;
     ratio = Math.max(0, Math.min(1, ratio));
 
-    c.fillStyle = 'rgba(255,255,255,0.7)';
+    c.fillStyle = 'rgba(255,255,255,0.8)';
     this.roundRect(16, 14, 240, 26, 13);
     c.fill();
+    c.strokeStyle = '#413A5C';
+    c.lineWidth = 2.5;
+    this.roundRect(16, 14, 240, 26, 13);
+    c.stroke();
     c.fillStyle = this.accent;
     if (ratio > 0.02) {
-      this.roundRect(19, 17, Math.max(20, 234 * ratio), 20, 10);
+      this.roundRect(20, 18, Math.max(18, 232 * ratio), 18, 9);
       c.fill();
     }
-    this.emoji('🌟', 16 + Math.max(20, 234 * ratio), 27, 26);
+    this.img(this.sprites.item, 20 + Math.max(18, 232 * ratio), 27, 30);
 
     if (m === 'collect' || m === 'pop') {
-      c.fillStyle = '#334155';
-      c.font = 'bold 22px sans-serif';
+      c.fillStyle = '#413A5C';
+      c.font = '22px "ZCOOL KuaiLe", sans-serif';
       c.textAlign = 'left';
-      c.fillText(`${this.score} / ${this.goal}`, 270, 32);
+      c.textBaseline = 'middle';
+      c.fillText(`${this.score} / ${this.goal}`, 272, 28);
     }
   }
 
@@ -518,12 +624,12 @@ export class GameRuntime {
 }
 
 /** 各玩法的开场提示（语音播报 + 屏幕大图标，不依赖阅读） */
-export function controlHint(spec: GameSpec): { text: string; emoji: string } {
+export function controlHint(spec: GameSpec): { text: string } {
   switch (spec.mechanic) {
-    case 'race': return { text: '快快点屏幕（或按空格键），让它跑得飞快！', emoji: '👆💨' };
-    case 'collect': return { text: '点左边往左、点右边往右（或用方向键），接住星星！', emoji: '⭐🧺' };
-    case 'dodge': return { text: '点左边往左、点右边往右（或用方向键），躲开障碍！', emoji: '🙈💨' };
-    case 'jump': return { text: '点一下屏幕（或按空格键）就能跳，跳过障碍！', emoji: '🦘⬆️' };
-    case 'pop': return { text: '看到泡泡就戳它！全部戳破就赢啦！', emoji: '👆🫧' };
+    case 'race': return { text: '快快点屏幕（或按空格键），让它跑得飞快！' };
+    case 'collect': return { text: '点左边往左、点右边往右（或用方向键），接住星星！' };
+    case 'dodge': return { text: '点左边往左、点右边往右（或用方向键），躲开障碍！' };
+    case 'jump': return { text: '点一下屏幕（或按空格键）就能跳，跳过障碍！' };
+    case 'pop': return { text: '看到泡泡就戳它！全部戳破就赢啦！' };
   }
 }
