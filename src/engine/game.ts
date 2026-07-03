@@ -8,9 +8,9 @@ import { svgToImage, wrapPropSVG } from '../art/raster';
 import { SCENE_THEMES, TONE_ACCENT, themeOf, workTitle } from './sketch';
 import type { GameSpec, SlotProfile } from './types';
 
-export const GAME_W = 640;
-export const GAME_H = 400;
-const GROUND = 320;
+export const GAME_W = 880;
+export const GAME_H = 380;
+const GROUND = 300;
 const SX = GAME_W / 480; // 草图主题坐标 → 游戏坐标
 const SY = GAME_H / 320;
 
@@ -148,6 +148,7 @@ export class GameRuntime {
     if (e.code === 'ArrowLeft') this.held.left = true;
     else if (e.code === 'ArrowRight') this.held.right = true;
     else if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); this.press('action'); }
+    else if (e.code === 'KeyF') { e.preventDefault(); this.special(); }
   };
   private keyUp = (e: KeyboardEvent) => {
     if (e.code === 'ArrowLeft') this.held.left = false;
@@ -230,6 +231,68 @@ export class GameRuntime {
         this.heroVy = -300; // 会飞：二段跳
         this.puff(this.heroX, this.heroY + 20);
       }
+    }
+  }
+
+  private lastSpecial = -10;
+
+  /**
+   * 关键细节技能（原型的“喷火！”按钮）：孩子的执念点变成可主动施放的能力。
+   * 每种玩法有对应的爆发效果，带冷却，永远是“帮一把”而不是必需操作。
+   */
+  special() {
+    if (!this.spec.effect || this.won) return;
+    if (this.t - this.lastSpecial < 2.2) return;
+    this.lastSpecial = this.t;
+    const m = this.spec.mechanic;
+    const fx = this.spec.effect === 'fire'
+      ? (x: number, y: number) => this.flame(x, y)
+      : (x: number, y: number) => this.spark(x, y);
+    if (m === 'race') {
+      this.progress = Math.min(1, this.progress + 0.1);
+      this.speed += 0.12;
+      fx(this.heroXOnTrack(), GROUND - 40);
+      sfx.collect();
+      if (this.progress >= 1) this.win();
+    } else if (m === 'jump') {
+      for (const o of this.obstacles) {
+        const ox = o.x - this.scroll;
+        if (!o.passed && ox > this.heroX && ox < this.heroX + 320) {
+          o.passed = true;
+          this.passed++;
+          fx(ox, GROUND - 30);
+        }
+      }
+      sfx.collect();
+      if (this.passed >= this.goal) this.win();
+    } else if (m === 'collect') {
+      let n = 0;
+      for (const d of this.drops) {
+        if (d.isItem && !d.caught && n < 3) {
+          d.caught = true;
+          this.score++;
+          n++;
+          fx(d.x, d.y);
+        }
+      }
+      if (n > 0) sfx.collect();
+      if (this.score >= this.goal) this.win();
+    } else if (m === 'dodge') {
+      for (const d of this.drops) { if (!d.caught) fx(d.x, d.y); }
+      this.drops = [];
+      sfx.pop();
+    } else if (m === 'pop') {
+      let n = 0;
+      for (const b of this.bubbles) {
+        if (b.life > 0 && n < 3) {
+          b.life = 0;
+          this.score++;
+          n++;
+          fx(b.x, b.y);
+        }
+      }
+      if (n > 0) sfx.pop();
+      if (this.score >= this.goal) this.win();
     }
   }
 
@@ -625,11 +688,20 @@ export class GameRuntime {
 
 /** 各玩法的开场提示（语音播报 + 屏幕大图标，不依赖阅读） */
 export function controlHint(spec: GameSpec): { text: string } {
+  const special = spec.effect ? `想帮忙的时候就按“${effectButtonLabel(spec.effect)}”！` : '';
   switch (spec.mechanic) {
-    case 'race': return { text: '快快点屏幕（或按空格键），让它跑得飞快！' };
-    case 'collect': return { text: '点左边往左、点右边往右（或用方向键），接住星星！' };
-    case 'dodge': return { text: '点左边往左、点右边往右（或用方向键），躲开障碍！' };
-    case 'jump': return { text: '点一下屏幕（或按空格键）就能跳，跳过障碍！' };
-    case 'pop': return { text: '看到泡泡就戳它！全部戳破就赢啦！' };
+    case 'race': return { text: `快快点屏幕（或按空格键），让它跑得飞快！${special}` };
+    case 'collect': return { text: `点左边往左、点右边往右（或用方向键），接住星星！${special}` };
+    case 'dodge': return { text: `点左边往左、点右边往右（或用方向键），躲开障碍！${special}` };
+    case 'jump': return { text: `点一下屏幕（或按空格键）就能跳，跳过障碍！${special}` };
+    case 'pop': return { text: `看到泡泡就戳它！全部戳破就赢啦！${special}` };
   }
+}
+
+/** 技能按钮文案：把 key_detail 变成孩子能一眼认出的“大招” */
+export function effectButtonLabel(effect: NonNullable<GameSpec['effect']>): string {
+  return {
+    fire: '喷火！', fly: '飞一下！', glow: '亮闪闪！',
+    rainbow: '彩虹冲！', speed: '冲刺！', sparkle: '变魔法！',
+  }[effect];
 }

@@ -1,26 +1,26 @@
 // 流程中枢：六阶段闭环状态机（PRD 第 2 节）。
 // ① 倾听 → ② 拆解+草图隐式确认（打断→分歧，回到②）
 // → ③ 复述确认+终稿【唯一显式确认】（不满意→②）→ ④ 构建 → ⑤ 成品+迭代（→①）
+// 应用形态对照【儿童课程交互原型设计】：1194×834 iPad 横屏卡片 + 自适应缩放 + 顶部旅程条。
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadWorks, saveWork } from '../app/archive';
 import { loadSpeechPref, setSpeechEnabled, speak, speechEnabled, stopSpeaking } from '../app/speech';
-import { buildSpec } from '../engine/game';
+import { buildSpec, controlHint } from '../engine/game';
 import {
   applyOption, parseUtterance, pendingDivergence, buildFixDivergence, slotsToJSON,
 } from '../engine/parser';
 import {
   celebrateLine, iterateInvite, listenPrompt, nudgeLine, recapSentence, sketchNarration,
 } from '../engine/story';
-import { controlHint } from '../engine/game';
 import type {
   DialogueEntry, Divergence, DivergenceOption, GameSpec, SlotName, SlotProfile, WorkRecord,
 } from '../engine/types';
-import { IconGear, IconHome, IconSound } from '../art/icons';
-import { Backdrop, Bubble } from './bits';
+import { IconGear, IconHome, IconSound, JourneyDots, Mascot } from '../art/icons';
+import { Bubble } from './bits';
 import { PlayStage } from './GameCanvas';
 import {
-  BuildStage, ConfirmStage, DivergeStage, FixWhatStage, HomeStage, ListenStage, SketchStage,
+  BuildStage, ConfirmStage, DivergeStage, FixWhatStage, ListenStage, SketchStage, WelcomeStage,
 } from './stages';
 
 type Stage =
@@ -32,6 +32,21 @@ type Stage =
   | { name: 'confirm' }
   | { name: 'build' }
   | { name: 'play'; won: boolean };
+
+const FRAME_W = 1194;
+const FRAME_H = 834;
+
+/** 旅程点：倾听 0 → 画草图 1 → 确认 2 → 建造 3 → 玩 4 */
+function journeyIndex(stage: Stage): number {
+  switch (stage.name) {
+    case 'listen': return 0;
+    case 'diverge': case 'sketch': case 'fixwhat': return 1;
+    case 'confirm': return 2;
+    case 'build': return 3;
+    case 'play': return 4;
+    default: return -1;
+  }
+}
 
 export default function App() {
   const [stage, setStage] = useState<Stage>({ name: 'home' });
@@ -47,13 +62,30 @@ export default function App() {
   const [devOpen, setDevOpen] = useState(false);
   const [works, setWorks] = useState<WorkRecord[]>([]);
 
+  // —— 1194×834 卡片自适应缩放（对照原型的 fit 逻辑） ——
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const fit = () => {
+      const el = hostRef.current;
+      if (!el) return;
+      const s = Math.min(1, (el.clientWidth - 32) / FRAME_W, (el.clientHeight - 32) / FRAME_H);
+      setScale(isFinite(s) && s > 0 ? s : 1);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    if (hostRef.current) ro.observe(hostRef.current);
+    window.addEventListener('resize', fit);
+    return () => { ro.disconnect(); window.removeEventListener('resize', fit); };
+  }, []);
+
   useEffect(() => {
     loadSpeechPref();
     setSoundOn(speechEnabled());
     setWorks(loadWorks());
   }, []);
 
-  /** 阿奇（AI 小精灵）说话：TTS + 字幕 + 记入对话档案 */
+  /** 小灵说话：TTS + 字幕 + 记入对话档案 */
   const say = useCallback((text: string) => {
     setCaption(text);
     speak(text);
@@ -152,7 +184,7 @@ export default function App() {
   const confirmYes = useCallback(() => {
     if (!profile) return;
     setStage({ name: 'build' });
-    say('好嘞！看我的魔法——');
+    say('好嘞！看我的小魔法——');
   }, [profile, say]);
 
   const confirmNo = useCallback(() => {
@@ -235,67 +267,74 @@ export default function App() {
         stage: stage.name,
         divergence: stage.name === 'diverge' ? { slot: stage.div.slot, kind: stage.div.kind, reason: stage.div.reason } : null,
         slots: profile ? slotsToJSON(profile) : null,
-        dialogue: dialogue.slice(-6).map((d) => `${d.who === 'kid' ? '👶' : '🧚'} ${d.text}`),
+        dialogue: dialogue.slice(-6).map((d) => `${d.who === 'kid' ? '孩子' : '小灵'}：${d.text}`),
       },
       null,
       2,
     );
-  }, [devOpen, profile, stage]);
+  }, [devOpen, dialogue, profile, stage]);
 
   return (
-    <div className="app">
-      <Backdrop />
-      <header className="topbar">
-        {stage.name !== 'home' ? (
-          <button className="icon-btn" type="button" onClick={goHome} title="回小屋">
-            <IconHome size={30} />
-          </button>
-        ) : <span />}
-        <button className="icon-btn" type="button" onClick={toggleSound} title="声音开关">
-          <IconSound size={30} off={!soundOn} />
+    <div className="frame-host" ref={hostRef}>
+      <div className="frame-card" style={{ transform: `scale(${scale})` }}>
+        <header className="topbar">
+          {stage.name !== 'home' ? (
+            <button className="home-pill" type="button" onClick={goHome}>
+              <IconHome size={18} />
+              从头开始
+            </button>
+          ) : <span className="home-pill-ghost" />}
+          <JourneyDots current={journeyIndex(stage)} />
+          <div className="topbar-right">
+            <button className="sound-pill" type="button" onClick={toggleSound} title="声音开关">
+              <IconSound size={20} off={!soundOn} />
+            </button>
+            <div className="brand-chip">
+              <span className="brand-logo"><Mascot size={24} sparks={false} /></span>
+              小灵造造
+            </div>
+          </div>
+        </header>
+
+        <main className="stage-area">
+          {stage.name !== 'home' && stage.name !== 'listen' && <Bubble text={caption} />}
+          {stage.name === 'home' && (
+            <WelcomeStage works={works} onStart={startFresh} onPlay={playWork} onIterate={iterateWork} />
+          )}
+          {stage.name === 'listen' && (
+            <ListenStage iterating={iterating} onSubmit={submitUtterance} />
+          )}
+          {stage.name === 'diverge' && profile && (
+            <DivergeStage profile={profile} divergence={stage.div} onPick={pickOption} />
+          )}
+          {stage.name === 'sketch' && profile && (
+            <SketchStage profile={profile} onPass={sketchPass} onInterrupt={sketchInterrupt} />
+          )}
+          {stage.name === 'fixwhat' && profile && (
+            <FixWhatStage profile={profile} onPick={fixPick} onResay={fixResay} />
+          )}
+          {stage.name === 'confirm' && profile && (
+            <ConfirmStage profile={profile} onYes={confirmYes} onNo={confirmNo} />
+          )}
+          {stage.name === 'build' && profile && (
+            <BuildStage profile={profile} onDone={buildDone} />
+          )}
+          {stage.name === 'play' && spec && (
+            <PlayStage
+              spec={spec}
+              onWin={gameWon}
+              onIterate={iterate}
+              onReplay={() => setStage({ name: 'play', won: false })}
+              onHome={goHome}
+            />
+          )}
+        </main>
+
+        <button className="dev-toggle" type="button" onClick={() => setDevOpen((o) => !o)} title="内部骨架（开发/家长用）">
+          <IconGear size={18} />
         </button>
-      </header>
-
-      {stage.name !== 'home' && <Bubble text={caption} />}
-
-      <main className="stage-area">
-        {stage.name === 'home' && (
-          <HomeStage works={works} onStart={startFresh} onPlay={playWork} onIterate={iterateWork} />
-        )}
-        {stage.name === 'listen' && (
-          <ListenStage iterating={iterating} onSubmit={submitUtterance} />
-        )}
-        {stage.name === 'diverge' && profile && (
-          <DivergeStage profile={profile} divergence={stage.div} onPick={pickOption} />
-        )}
-        {stage.name === 'sketch' && profile && (
-          <SketchStage profile={profile} onPass={sketchPass} onInterrupt={sketchInterrupt} />
-        )}
-        {stage.name === 'fixwhat' && profile && (
-          <FixWhatStage profile={profile} onPick={fixPick} onResay={fixResay} />
-        )}
-        {stage.name === 'confirm' && profile && (
-          <ConfirmStage profile={profile} onYes={confirmYes} onNo={confirmNo} />
-        )}
-        {stage.name === 'build' && profile && (
-          <BuildStage profile={profile} onDone={buildDone} />
-        )}
-        {stage.name === 'play' && spec && (
-          <PlayStage
-            spec={spec}
-            won={stage.won}
-            onWin={gameWon}
-            onIterate={iterate}
-            onReplay={() => setStage({ name: 'play', won: false })}
-            onHome={goHome}
-          />
-        )}
-      </main>
-
-      <button className="dev-toggle" type="button" onClick={() => setDevOpen((o) => !o)} title="内部骨架（开发/家长用）">
-        <IconGear size={20} />
-      </button>
-      {devOpen && <pre className="dev-panel">{devInfo}</pre>}
+        {devOpen && <pre className="dev-panel">{devInfo}</pre>}
+      </div>
     </div>
   );
 }

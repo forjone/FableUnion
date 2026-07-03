@@ -146,23 +146,50 @@ export const IconGear = ({ size = 20 }: { size?: number }) => (
   </Svg>
 );
 
-/** 吉祥物“阿奇”——挥着魔法棒的星星小精灵（品牌角色，出现在气泡/倾听/构建） */
-export function Mascot({ size = 64, waving = false }: { size?: number; waving?: boolean }) {
+/** 吉祥物“小灵”——橙色小圆生物（对照原型：不规则圆身、白眼黑瞳、腮红、开口笑、身边有小星星） */
+export function Mascot({ size = 64, waving = false, sparks = true }: { size?: number; waving?: boolean; sparks?: boolean }) {
   return (
     <svg viewBox="0 0 120 120" width={size} height={size} aria-hidden className={waving ? 'mascot-wave' : undefined}>
-      <g transform={waving ? 'rotate(-8 60 60)' : undefined}>
-        <line x1="94" y1="44" x2="112" y2="20" stroke={P.cocoa} strokeWidth="5" strokeLinecap="round" />
-        <path d="M 112 20 m 0 -9 l 2.7 6 6.3 0.7 -4.7 4.3 1.3 6.3 -5.6 -3.3 -5.6 3.3 1.3 -6.3 -4.7 -4.3 6.3 -0.7 Z" fill={P.coral} stroke={INK} strokeWidth="2" strokeLinejoin="round" />
-        <path d="M 60 14 L 72 42 L 102 45 L 80 65 L 87 95 L 60 78 L 33 95 L 40 65 L 18 45 L 48 42 Z"
-          fill={P.sunshine} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
-        <circle cx="51" cy="55" r="5" fill="#fff" stroke={INK} strokeWidth="2" />
-        <circle cx="69" cy="55" r="5" fill="#fff" stroke={INK} strokeWidth="2" />
-        <circle cx="52" cy="56" r="2.5" fill={INK} />
-        <circle cx="68" cy="56" r="2.5" fill={INK} />
-        <circle cx="44" cy="64" r="3.4" fill="#FFB3C7" opacity="0.9" />
-        <circle cx="76" cy="64" r="3.4" fill="#FFB3C7" opacity="0.9" />
-        <path d="M 55 64 Q 60 69 65 64" stroke={INK} strokeWidth="2.4" fill="none" strokeLinecap="round" />
-      </g>
+      <defs>
+        <linearGradient id="ling-body" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0" stopColor="#FF9256" />
+          <stop offset="1" stopColor="#EE7A45" />
+        </linearGradient>
+      </defs>
+      {sparks && (
+        <>
+          <rect x="88" y="10" width="12" height="12" rx="3" fill="#FFC24B" transform="rotate(45 94 16)" className="spark s1" />
+          <rect x="102" y="40" width="8" height="8" rx="2" fill="#57B368" transform="rotate(45 106 44)" className="spark s2" />
+        </>
+      )}
+      <path d="M 60 8 Q 104 10 108 58 Q 110 106 60 110 Q 12 108 12 58 Q 14 12 60 8" fill="url(#ling-body)" />
+      <path d="M 60 104 Q 24 102 20 62 Q 22 96 60 100 Q 96 98 102 60 Q 100 100 60 104" fill="rgba(0,0,0,0.06)" />
+      <ellipse cx="44" cy="54" rx="10" ry="12" fill="#fff" />
+      <ellipse cx="76" cy="54" rx="10" ry="12" fill="#fff" />
+      <circle cx="46" cy="57" r="5" fill="#3E2A1E" />
+      <circle cx="74" cy="57" r="5" fill="#3E2A1E" />
+      <circle cx="48" cy="55" r="1.8" fill="#fff" />
+      <circle cx="76" cy="55" r="1.8" fill="#fff" />
+      <ellipse cx="32" cy="72" rx="7" ry="4.5" fill="rgba(255,120,120,0.5)" />
+      <ellipse cx="88" cy="72" rx="7" ry="4.5" fill="rgba(255,120,120,0.5)" />
+      <path d="M 51 70 Q 60 80 69 70" stroke="#3E2A1E" strokeWidth="4" fill="none" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/** 顶部旅程进度点（原型：走过=橙、当前=黄、未到=浅灰） */
+export function JourneyDots({ current }: { current: number }) {
+  return (
+    <div className="journey-dots" aria-hidden>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span
+          key={i}
+          className="journey-dot"
+          style={{
+            background: i < current ? '#EE7A45' : i === current ? '#FFC24B' : 'rgba(62,49,40,0.12)',
+          }}
+        />
+      ))}
+    </div>
   );
 }

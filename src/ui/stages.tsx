@@ -1,10 +1,9 @@
-// 六阶段闭环的各个界面（PRD 第 2 节）。全部为呈现组件，流程决策在 App。
+// 六阶段闭环的各个界面（PRD 第 2 节），分镜对照【儿童课程交互原型设计】。
+// 全部为呈现组件，流程决策在 App。
 
 import { useEffect, useRef, useState } from 'react';
 import { characterSVG } from '../art/characters';
-import {
-  IconCheck, IconGamepad, IconHand, IconMic, IconPencil, IconSparkle, Mascot,
-} from '../art/icons';
+import { IconGamepad, IconMic, IconPencil, Mascot } from '../art/icons';
 import {
   difficultyBadgeSVG, mechanicBadgeSVG, optionSketch, sceneBadgeSVG, sketchSVG,
   toneBadgeSVG, workTitle,
@@ -13,7 +12,7 @@ import { buildSteps } from '../engine/story';
 import type {
   Divergence, DivergenceOption, SlotName, SlotProfile, WorkRecord,
 } from '../engine/types';
-import { BigButton, Card, SketchView } from './bits';
+import { SketchView } from './bits';
 
 /** 分歧/卡片选项的图形徽章：根据槽位类型渲染对应插画 */
 function optionBadge(div: Divergence, opt: DivergenceOption): string {
@@ -25,7 +24,50 @@ function optionBadge(div: Divergence, opt: DivergenceOption): string {
   return characterSVG(undefined);
 }
 
-// ---------- ① 语音倾听（MVP：文字输入模拟语音，PRD 第 7 节） ----------
+// ---------- 欢迎（原型 WELCOME 分镜：大吉祥物 + 大圆麦克风） ----------
+
+export function WelcomeStage(props: {
+  works: WorkRecord[];
+  onStart: () => void;
+  onPlay: (w: WorkRecord) => void;
+  onIterate: (w: WorkRecord) => void;
+}) {
+  return (
+    <div className="stage-welcome">
+      <div className="welcome-mascot"><Mascot size={190} /></div>
+      <h1 className="welcome-title">你想造个什么呀？</h1>
+      <p className="welcome-sub">点一下下面的大圆圈，把你的点子说给我听～</p>
+      <button className="mic-orb" type="button" onClick={props.onStart} aria-label="开始说想法">
+        <svg width="54" height="54" viewBox="0 0 24 24" fill="#fff" aria-hidden>
+          <rect x="9" y="2" width="6" height="12" rx="3" />
+          <path d="M6 11a6 6 0 0 0 12 0" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+          <path d="M12 17v4" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+      <p className="welcome-hint">点一下就开始说话</p>
+      {props.works.length > 0 && (
+        <div className="shelf">
+          <div className="shelf-title">我的作品</div>
+          <div className="shelf-row">
+            {props.works.slice(0, 4).map((w) => (
+              <div key={w.id} className="work-card">
+                <button className="work-main" type="button" onClick={() => props.onPlay(w)}>
+                  <span className="work-art" dangerouslySetInnerHTML={{ __html: characterSVG(w.spec.heroId, 44) }} />
+                  <span className="work-title">{w.title}</span>
+                </button>
+                <button className="work-edit" type="button" title="接着上次的改" onClick={() => props.onIterate(w)}>
+                  <IconPencil size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- ① 语音倾听（原型 LISTENING 分镜；MVP 用文字输入模拟语音，PRD 第 7 节） ----------
 
 const FRESH_CHIPS = [
   { charId: 'dino', text: '我想要恐龙赛跑，恐龙一定要会喷火！' },
@@ -48,34 +90,41 @@ export function ListenStage(props: { iterating: boolean; onSubmit: (text: string
   const chips = props.iterating ? ITERATE_CHIPS : FRESH_CHIPS;
   const submit = () => { props.onSubmit(text); setText(''); };
   return (
-    <Card className="stage-listen">
-      <div className="listen-mascot">
-        <Mascot size={96} waving />
-        <div className="listen-ears" aria-hidden>
-          <span /><span /><span /><span /><span />
-        </div>
+    <div className="stage-listen">
+      <div className="listen-orb" aria-hidden>
+        <span className="listen-ring r1" />
+        <span className="listen-ring r2" />
+        <span className="listen-orb-core">
+          <span className="wave w1" /><span className="wave w2" /><span className="wave w3" />
+          <span className="wave w4" /><span className="wave w5" />
+        </span>
       </div>
-      <textarea
-        ref={inputRef}
-        className="speech-input"
-        placeholder="把你的想法说出来…（打字模拟说话）"
-        value={text}
-        rows={2}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
-        }}
-      />
-      <BigButton icon={<IconSparkle size={30} />} label="说完啦！" kind="ok" onClick={submit} />
+      <p className="listen-title">我在认真听哦……</p>
+      <div className="transcript-box">
+        <textarea
+          ref={inputRef}
+          className="transcript-input"
+          placeholder={props.iterating ? '想改点什么、加点什么？说吧！' : '把你的点子说出来…（打字模拟说话）'}
+          value={text}
+          rows={2}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+          }}
+        />
+      </div>
+      {text.trim() && (
+        <button className="btn-go" type="button" onClick={submit}>对，就是这个！</button>
+      )}
       <div className="chips">
         {chips.map((c) => (
           <button key={c.text} className="chip" type="button" onClick={() => setText(c.text)}>
-            <span className="chip-art" dangerouslySetInnerHTML={{ __html: characterSVG(c.charId, 34) }} />
+            <span className="chip-art" dangerouslySetInnerHTML={{ __html: characterSVG(c.charId, 30) }} />
             <span className="chip-text">{c.text}</span>
           </button>
         ))}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -101,19 +150,18 @@ export function SketchStage(props: {
     return () => clearInterval(iv);
   }, [onPass]);
   return (
-    <Card className="stage-sketch">
-      <div className="polaroid">
-        <SketchView svg={svg} className="sketch-pop" />
-        <span className="polaroid-tape" aria-hidden />
+    <div className="stage-sketch">
+      <div className="proto-card sketch-card pop-in">
+        <SketchView svg={svg} />
       </div>
       <div className="quiet-timer" aria-hidden>
         <div className="quiet-timer-fill" style={{ width: `${(left / PASS_AFTER_MS) * 100}%` }} />
       </div>
       <div className="row">
-        <BigButton icon={<IconCheck size={30} />} label="好耶！" kind="ok" onClick={props.onPass} />
-        <BigButton icon={<IconHand size={30} />} label="不是这样的" kind="warn" onClick={props.onInterrupt} />
+        <button className="btn-go" type="button" onClick={props.onPass}>好耶，就是这样！</button>
+        <button className="btn-quiet" type="button" onClick={props.onInterrupt}>不是这样的</button>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -131,22 +179,23 @@ export function FixWhatStage(props: {
     { slot: 'mechanic', art: '', label: '换玩法' },
   ];
   return (
-    <Card className="stage-fixwhat">
+    <div className="stage-fixwhat">
       <div className="option-row">
         {cards.map((c) => (
-          <button key={c.slot} className="pick-card" type="button" onClick={() => props.onPick(c.slot)}>
+          <button key={c.slot} className="pick-card slide-up" type="button" onClick={() => props.onPick(c.slot)}>
             {c.slot === 'mechanic'
-              ? <span className="pick-art pick-art-icon"><IconGamepad size={64} /></span>
+              ? <span className="pick-art pick-art-icon"><IconGamepad size={62} /></span>
               : <span className="pick-art" dangerouslySetInnerHTML={{ __html: c.art }} />}
             <span className="pick-label">{c.label}</span>
           </button>
         ))}
-        <button className="pick-card" type="button" onClick={props.onResay}>
-          <span className="pick-art pick-art-icon"><IconMic size={64} /></span>
+        <button className="pick-card slide-up" type="button" onClick={props.onResay}>
+          <span className="pick-art pick-art-icon"><IconMic size={62} /></span>
           <span className="pick-label">我再说一遍</span>
         </button>
       </div>
-    </Card>
+      <p className="soft-hint">点一个你想改的～不用着急</p>
+    </div>
   );
 }
 
@@ -160,37 +209,46 @@ export function DivergeStage(props: {
   const { divergence, profile } = props;
   if (divergence.kind === 'visual') {
     return (
-      <Card className="stage-diverge">
+      <div className="stage-diverge">
         <div className="option-row">
           {divergence.options.map((opt, i) => (
             <button
               key={opt.label}
-              className={`option-sketch tilt-${i % 2 ? 'r' : 'l'}`}
+              className="proto-card option-sketch slide-up"
+              style={{ animationDelay: `${i * 0.08}s` }}
               type="button"
               onClick={() => props.onPick(opt)}
             >
               <SketchView svg={optionSketch(profile, opt.patch, `opt${i}`)} />
-              <span className="option-badge">
+              <span className="option-label-bar">
                 <span className="option-badge-art" dangerouslySetInnerHTML={{ __html: optionBadge(divergence, opt) }} />
-                <span className="pick-label">{opt.label}</span>
+                {opt.label}
               </span>
             </button>
           ))}
         </div>
-      </Card>
+        <p className="soft-hint">点一个你更喜欢的～不用着急</p>
+      </div>
     );
   }
   return (
-    <Card className="stage-diverge">
+    <div className="stage-diverge">
       <div className="option-row">
-        {divergence.options.map((opt) => (
-          <button key={opt.label} className="pick-card" type="button" onClick={() => props.onPick(opt)}>
+        {divergence.options.map((opt, i) => (
+          <button
+            key={opt.label}
+            className="pick-card slide-up"
+            style={{ animationDelay: `${i * 0.08}s` }}
+            type="button"
+            onClick={() => props.onPick(opt)}
+          >
             <span className="pick-art" dangerouslySetInnerHTML={{ __html: optionBadge(divergence, opt) }} />
             <span className="pick-label">{opt.label}</span>
           </button>
         ))}
       </div>
-    </Card>
+      <p className="soft-hint">点一个你更喜欢的～不用着急</p>
+    </div>
   );
 }
 
@@ -207,17 +265,31 @@ export function ConfirmStage(props: {
     title: workTitle(props.profile),
   });
   return (
-    <Card className="stage-confirm">
-      <SketchView svg={svg} className="sketch-pop" />
-      <div className="row">
-        <BigButton icon={<IconCheck size={30} />} label="对！就是这个！" kind="ok" onClick={props.onYes} />
-        <BigButton icon={<IconHand size={30} />} label="还不对" kind="warn" onClick={props.onNo} />
+    <div className="stage-confirm">
+      <span className="confirm-badge">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="#6A4A12" aria-hidden>
+          <path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 16.7 5.7 21l2.3-7.2-6-4.4h7.6z" />
+        </svg>
+        最后确认一下
+      </span>
+      <div className="proto-card confirm-card pop-in">
+        <SketchView svg={svg} />
       </div>
-    </Card>
+      <p className="confirm-sub">对的话我就开始造啦，要用点小魔法哦～</p>
+      <div className="row">
+        <button className="btn-quiet" type="button" onClick={props.onNo}>再改改</button>
+        <button className="btn-primary" type="button" onClick={props.onYes}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M4 12.5l5 5 11-12" />
+          </svg>
+          对！开始造
+        </button>
+      </div>
+    </div>
   );
 }
 
-// ---------- ④ 深度构建（故事化进度，PRD 3.6） ----------
+// ---------- ④ 深度构建（原型 BUILD 分镜：大字进度 + 步骤清单，PRD 3.6） ----------
 
 export function BuildStage(props: { profile: SlotProfile; onDone: () => void }) {
   const [stepIdx, setStepIdx] = useState(0);
@@ -225,63 +297,34 @@ export function BuildStage(props: { profile: SlotProfile; onDone: () => void }) 
   const { onDone } = props;
   useEffect(() => {
     if (stepIdx >= steps.length) { onDone(); return; }
-    const t = setTimeout(() => setStepIdx((i) => i + 1), 950);
+    const t = setTimeout(() => setStepIdx((i) => i + 1), 1000);
     return () => clearTimeout(t);
   }, [stepIdx, steps.length, onDone]);
   return (
-    <Card className="stage-build">
+    <div className="stage-build">
       <div className="build-scene">
-        <span className="build-hero bounce" dangerouslySetInnerHTML={{ __html: characterSVG(props.profile.subject?.id, 110) }} />
-        <span className="build-mascot"><Mascot size={72} waving /></span>
+        <span className="build-mascot float"><Mascot size={130} /></span>
+        <span className="build-hero bounce" dangerouslySetInnerHTML={{ __html: characterSVG(props.profile.subject?.id, 96) }} />
       </div>
-      <div className="build-step">{steps[Math.min(stepIdx, steps.length - 1)]}</div>
+      <p className="build-line">{steps[Math.min(stepIdx, steps.length - 1)]}</p>
       <div className="build-bar">
         <div
           className="build-bar-fill"
-          style={{ width: `${Math.min(100, ((stepIdx + 1) / steps.length) * 100)}%` }}
+          style={{ width: `${Math.min(100, (stepIdx / steps.length) * 100)}%` }}
         />
       </div>
-    </Card>
-  );
-}
-
-// ---------- 小屋（作品档案，PRD 3.7） ----------
-
-export function HomeStage(props: {
-  works: WorkRecord[];
-  onStart: () => void;
-  onPlay: (w: WorkRecord) => void;
-  onIterate: (w: WorkRecord) => void;
-}) {
-  return (
-    <Card className="stage-home">
-      <div className="home-mascot"><Mascot size={120} waving /></div>
-      <h1 className="home-title">奇想造物屋</h1>
-      <p className="home-sub">把你脑袋里的奇思妙想，变成真的游戏！</p>
-      <BigButton icon={<IconMic size={34} />} label="说出你的想法" kind="primary" onClick={props.onStart} className="home-start" />
-      {props.works.length > 0 && (
-        <div className="shelf">
-          <div className="shelf-title">我的作品</div>
-          <div className="shelf-row">
-            {props.works.map((w) => (
-              <div key={w.id} className="work-card">
-                <button className="work-main" type="button" onClick={() => props.onPlay(w)}>
-                  <span className="work-art" dangerouslySetInnerHTML={{ __html: characterSVG(w.spec.heroId, 56) }} />
-                  <span className="work-title">{w.title}</span>
-                </button>
-                <button
-                  className="work-edit"
-                  type="button"
-                  title="接着上次的改"
-                  onClick={() => props.onIterate(w)}
-                >
-                  <IconPencil size={22} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </Card>
+      <div className="build-list">
+        {steps.map((text, i) => {
+          const done = i < stepIdx;
+          const active = i === stepIdx;
+          return (
+            <div key={text} className={`build-item ${done ? 'done' : active ? 'active' : ''}`}>
+              <span className="build-item-dot">{done ? '✓' : active ? '·' : ''}</span>
+              {text}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
