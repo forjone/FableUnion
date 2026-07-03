@@ -2,6 +2,8 @@
 // 全部为呈现组件，流程决策在 App。
 
 import { useEffect, useRef, useState } from 'react';
+import type { MagicCover } from '../app/imagegen';
+import { sttSupported, startStt } from '../app/speech';
 import { characterSVG } from '../art/characters';
 import { IconGamepad, IconMic, IconPencil, Mascot } from '../art/icons';
 import {
@@ -52,7 +54,9 @@ export function WelcomeStage(props: {
             {props.works.slice(0, 4).map((w) => (
               <div key={w.id} className="work-card">
                 <button className="work-main" type="button" onClick={() => props.onPlay(w)}>
-                  <span className="work-art" dangerouslySetInnerHTML={{ __html: characterSVG(w.spec.heroId, 44) }} />
+                  {w.coverUrl
+                    ? <img className="work-cover" src={w.coverUrl} alt="" />
+                    : <span className="work-art" dangerouslySetInnerHTML={{ __html: characterSVG(w.spec.heroId, 44) }} />}
                   <span className="work-title">{w.title}</span>
                 </button>
                 <button className="work-edit" type="button" title="接着上次的改" onClick={() => props.onIterate(w)}>
@@ -85,10 +89,23 @@ const ITERATE_CHIPS = [
 
 export function ListenStage(props: { iterating: boolean; onSubmit: (text: string) => void }) {
   const [text, setText] = useState('');
+  const [live, setLive] = useState(''); // STT 实时预览片段
+  const hasMic = sttSupported();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => inputRef.current?.focus(), []);
+
+  // 真实语音输入（PRD 3.1）：支持的浏览器直接说话，最终片段追加进输入框
+  useEffect(() => {
+    const handle = startStt((t, final) => {
+      if (final) { setText((prev) => prev + t); setLive(''); }
+      else setLive(t);
+    });
+    return () => handle?.stop();
+  }, []);
+
   const chips = props.iterating ? ITERATE_CHIPS : FRESH_CHIPS;
-  const submit = () => { props.onSubmit(text); setText(''); };
+  const shown = text + live;
+  const submit = () => { props.onSubmit(text + live); setText(''); setLive(''); };
   return (
     <div className="stage-listen">
       <div className="listen-orb" aria-hidden>
@@ -104,16 +121,20 @@ export function ListenStage(props: { iterating: boolean; onSubmit: (text: string
         <textarea
           ref={inputRef}
           className="transcript-input"
-          placeholder={props.iterating ? '想改点什么、加点什么？说吧！' : '把你的点子说出来…（打字模拟说话）'}
-          value={text}
+          placeholder={
+            hasMic
+              ? '直接说话，或者打字都可以～'
+              : props.iterating ? '想改点什么、加点什么？说吧！' : '把你的点子说出来…（打字模拟说话）'
+          }
+          value={shown}
           rows={2}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); setLive(''); }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
           }}
         />
       </div>
-      {text.trim() && (
+      {shown.trim() && (
         <button className="btn-go" type="button" onClick={submit}>对，就是这个！</button>
       )}
       <div className="chips">
@@ -256,6 +277,7 @@ export function DivergeStage(props: {
 
 export function ConfirmStage(props: {
   profile: SlotProfile;
+  magic: MagicCover;
   onYes: () => void;
   onNo: () => void;
 }) {
@@ -264,6 +286,7 @@ export function ConfirmStage(props: {
     uid: 'final',
     title: workTitle(props.profile),
   });
+  const { magic } = props;
   return (
     <div className="stage-confirm">
       <span className="confirm-badge">
@@ -273,8 +296,19 @@ export function ConfirmStage(props: {
         最后确认一下
       </span>
       <div className="proto-card confirm-card pop-in">
-        <SketchView svg={svg} />
+        <div className="magic-stack">
+          <SketchView svg={svg} />
+          {magic.status === 'ready' && magic.url && (
+            <img className="magic-img" src={magic.url} alt="AI 魔法图" />
+          )}
+        </div>
       </div>
+      {magic.status === 'loading' && (
+        <span className="magic-chip loading">✦ 小灵正在施魔法上色…</span>
+      )}
+      {magic.status === 'ready' && (
+        <span className="magic-chip ready">✦ 魔法图来啦！</span>
+      )}
       <p className="confirm-sub">对的话我就开始造啦，要用点小魔法哦～</p>
       <div className="row">
         <button className="btn-quiet" type="button" onClick={props.onNo}>再改改</button>

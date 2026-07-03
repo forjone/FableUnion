@@ -38,6 +38,37 @@ npm run build    # 类型检查 + 生产构建
 - **唯一显式确认**：终稿视觉 + 用孩子原话复述（"我们要做一个喷火的恐龙在大草地里玩'赛跑'的游戏，对不对呀？"），点「✅ 对」才开始耗费构建资源。
 - **永远不说"不行"**：无法实现的需求（真的恐龙 / 一百关 / 联网）自动转译成可实现的相近版本再继续。
 
+## AI 魔法图（图片生成）
+
+终稿视觉（PRD 3.5）接入了 OpenAI 兼容的图片生成接口：进入确认页时**后台**开始生成，
+不阻塞孩子确认；生成好后以"魔法上色"淡入替换手绘终稿，并成为作品档案的封面。
+失败或未配置时静默回退到手绘图，**流程永不因图片生成卡住**（北极星准则 2：速度感即体验）。
+
+配置方式：点击右下角 ⚙（设置与家长面板，孩子界面不可见）：
+
+| 字段 | 说明 |
+|---|---|
+| API 地址 | 默认 `/imggen/v1`，经 Vite 同源代理转发到 `https://sub.tkrednote.com/v1`（见 `vite.config.ts`，避免浏览器 CORS）；填 `mock` 进入演示模式 |
+| API Key | `sk-…`（仅存浏览器 localStorage） |
+| 模型 | 默认 `gpt-image-2` |
+
+实际请求体与下述 curl 等价（`src/app/imagegen.ts`）：
+
+```bash
+curl -X POST https://sub.tkrednote.com/v1/images/generations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-xxxxx" \
+  -d '{ "model": "gpt-image-2", "prompt": "<由槽位拼装>", "n": 1, "size": "1024x1024", "response_format": "url" }'
+```
+
+prompt 由槽位自动拼装（中文描述 + 英文风格词），固定追加儿童安全后缀（wholesome / no text / no scary elements）。
+生产部署时需在网关配置 `/imggen/* → 图片生成服务` 的同样转发。
+
+## 真实语音输入
+
+倾听页已接入浏览器 SpeechRecognition（Chrome / Safari 可用）：支持的环境里孩子直接说话，
+实时转写进输入框（最终片段追加、临时片段预览）；不支持的环境静默回退到打字模拟。TTS 播报不变。
+
 ## 代码结构 → PRD 模块映射
 
 | 目录/文件 | PRD 模块 | 说明 |

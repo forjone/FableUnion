@@ -27,6 +27,7 @@ export function saveWork(
   profile: SlotProfile,
   spec: GameSpec,
   dialogue: DialogueEntry[],
+  coverUrl?: string | null,
 ): WorkRecord {
   const list = loadWorks();
   const now = Date.now();
@@ -38,6 +39,7 @@ export function saveWork(
     found.slots = slotsToJSON(profile);
     found.spec = spec;
     found.dialogue = dialogue;
+    if (coverUrl !== undefined) found.coverUrl = coverUrl;
     persist([found, ...list.filter((w) => w.id !== found.id)]);
     return found;
   }
@@ -50,6 +52,7 @@ export function saveWork(
     profile,
     spec,
     dialogue,
+    coverUrl: coverUrl ?? null,
   };
   persist([rec, ...list]);
   return rec;

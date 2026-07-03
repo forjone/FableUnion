@@ -101,4 +101,6 @@ export interface WorkRecord {
   profile: SlotProfile;
   spec: GameSpec;
   dialogue: DialogueEntry[];
+  /** AI 生成的终稿封面（未生成时为 null，展示回退到角色立绘） */
+  coverUrl?: string | null;
 }

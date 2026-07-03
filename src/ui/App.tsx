@@ -5,8 +5,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadWorks, saveWork } from '../app/archive';
+import {
+  DEFAULT_IMGGEN, generateImage, imagePrompt, imgGenReady, loadImgGenConfig,
+  saveImgGenConfig, type ImgGenConfig, type MagicCover,
+} from '../app/imagegen';
 import { loadSpeechPref, setSpeechEnabled, speak, speechEnabled, stopSpeaking } from '../app/speech';
 import { buildSpec, controlHint } from '../engine/game';
+import { sketchSVG, workTitle } from '../engine/sketch';
 import {
   applyOption, parseUtterance, pendingDivergence, buildFixDivergence, slotsToJSON,
 } from '../engine/parser';
@@ -61,6 +66,9 @@ export default function App() {
   const [soundOn, setSoundOn] = useState(true);
   const [devOpen, setDevOpen] = useState(false);
   const [works, setWorks] = useState<WorkRecord[]>([]);
+  const [imgCfg, setImgCfg] = useState<ImgGenConfig>(DEFAULT_IMGGEN);
+  const [magic, setMagic] = useState<MagicCover>({ status: 'idle', url: null });
+  const magicSeq = useRef(0);
 
   // —— 1194×834 卡片自适应缩放（对照原型的 fit 逻辑） ——
   const hostRef = useRef<HTMLDivElement>(null);
@@ -83,6 +91,25 @@ export default function App() {
     loadSpeechPref();
     setSoundOn(speechEnabled());
     setWorks(loadWorks());
+    setImgCfg(loadImgGenConfig());
+  }, []);
+
+  /** 进入确认页时后台生成 AI 魔法图（PRD 3.5 终稿视觉）：不阻塞确认，好了才淡入 */
+  const startMagic = useCallback((p: SlotProfile) => {
+    magicSeq.current += 1;
+    const seq = magicSeq.current;
+    if (!imgGenReady(imgCfg)) { setMagic({ status: 'idle', url: null }); return; }
+    setMagic({ status: 'loading', url: null });
+    const finalSvg = sketchSVG(p, { quality: 'final', uid: 'magic', title: workTitle(p) });
+    void generateImage(imagePrompt(p), imgCfg, finalSvg).then((url) => {
+      if (magicSeq.current !== seq) return; // 槽位已变化，丢弃过期结果
+      setMagic(url ? { status: 'ready', url } : { status: 'failed', url: null });
+    });
+  }, [imgCfg]);
+
+  const cancelMagic = useCallback(() => {
+    magicSeq.current += 1;
+    setMagic({ status: 'idle', url: null });
   }, []);
 
   /** 小灵说话：TTS + 字幕 + 记入对话档案 */
@@ -151,12 +178,13 @@ export default function App() {
     [changed, goSketch, profile, say, stage, translations],
   );
 
-  // —— ② → ③：沉默/点头即通过，进入唯一的显式确认 ——
+  // —— ② → ③：沉默/点头即通过，进入唯一的显式确认（同时后台开始 AI 魔法图） ——
   const sketchPass = useCallback(() => {
     if (!profile) return;
     setStage({ name: 'confirm' });
+    startMagic(profile);
     say(recapSentence(profile));
-  }, [profile, say]);
+  }, [profile, say, startMagic]);
 
   const sketchInterrupt = useCallback(() => {
     stopSpeaking();
@@ -188,24 +216,33 @@ export default function App() {
   }, [profile, say]);
 
   const confirmNo = useCallback(() => {
+    cancelMagic(); // 槽位要变了，丢弃生成中的魔法图
     setStage({ name: 'fixwhat' });
     say('没关系！哪里要改？指给我看！');
-  }, [say]);
+  }, [cancelMagic, say]);
 
-  // —— ④ → ⑤：构建完成即存档（作品档案），开始玩 ——
+  // —— ④ → ⑤：构建完成即存档（作品档案 + AI 封面），开始玩 ——
   const buildDone = useCallback(() => {
     if (!profile) return;
     const s = buildSpec(profile);
     setSpec(s);
     setDialogue((d) => {
-      const rec = saveWork(workId, s.title, profile, s, d);
+      const rec = saveWork(workId, s.title, profile, s, d, magic.url);
       setWorkId(rec.id);
       setWorks(loadWorks());
       return d;
     });
     setStage({ name: 'play', won: false });
     say(`${celebrateLine(profile)}${controlHint(s).text}`);
-  }, [profile, say, workId]);
+  }, [profile, say, workId, magic.url]);
+
+  // 魔法图在构建/游玩期间才回来 → 补写进档案封面
+  useEffect(() => {
+    if (magic.status !== 'ready' || !magic.url || !workId || !profile || !spec) return;
+    saveWork(workId, spec.title, profile, spec, dialogue, magic.url);
+    setWorks(loadWorks());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [magic.status]);
 
   const gameWon = useCallback(() => {
     setStage((st) => (st.name === 'play' ? { name: 'play', won: true } : st));
@@ -222,11 +259,12 @@ export default function App() {
 
   const goHome = useCallback(() => {
     stopSpeaking();
+    cancelMagic();
     resetSession();
     setWorks(loadWorks());
     setCaption('');
     setStage({ name: 'home' });
-  }, [resetSession]);
+  }, [cancelMagic, resetSession]);
 
   const startFresh = useCallback(() => {
     resetSession();
@@ -314,7 +352,7 @@ export default function App() {
             <FixWhatStage profile={profile} onPick={fixPick} onResay={fixResay} />
           )}
           {stage.name === 'confirm' && profile && (
-            <ConfirmStage profile={profile} onYes={confirmYes} onNo={confirmNo} />
+            <ConfirmStage profile={profile} magic={magic} onYes={confirmYes} onNo={confirmNo} />
           )}
           {stage.name === 'build' && profile && (
             <BuildStage profile={profile} onDone={buildDone} />
@@ -330,11 +368,88 @@ export default function App() {
           )}
         </main>
 
-        <button className="dev-toggle" type="button" onClick={() => setDevOpen((o) => !o)} title="内部骨架（开发/家长用）">
+        <button className="dev-toggle" type="button" onClick={() => setDevOpen((o) => !o)} title="设置与家长（孩子界面不可见）">
           <IconGear size={18} />
         </button>
-        {devOpen && <pre className="dev-panel">{devInfo}</pre>}
+        {devOpen && (
+          <SettingsPanel
+            cfg={imgCfg}
+            magic={magic}
+            devInfo={devInfo}
+            onSave={(next) => { setImgCfg(next); saveImgGenConfig(next); }}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+/** 设置与家长面板（PRD 第 5 节的雏形）：AI 魔法图配置 + 生成记录查看，孩子界面永不出现 */
+function SettingsPanel(props: {
+  cfg: ImgGenConfig;
+  magic: MagicCover;
+  devInfo: string;
+  onSave: (cfg: ImgGenConfig) => void;
+}) {
+  const [draft, setDraft] = useState<ImgGenConfig>(props.cfg);
+  const [saved, setSaved] = useState(false);
+  const set = (patch: Partial<ImgGenConfig>) => { setDraft((d) => ({ ...d, ...patch })); setSaved(false); };
+  const statusText = !draft.enabled
+    ? '已关闭：终稿使用小灵手绘图'
+    : imgGenReady(draft)
+      ? draft.baseUrl === 'mock'
+        ? '演示模式：不发请求，用手绘图模拟 AI 上色'
+        : '已配置：确认页会后台生成 AI 魔法图'
+      : '未填 API Key：终稿使用小灵手绘图';
+  return (
+    <div className="dev-panel settings-panel">
+      <div className="settings-title">AI 魔法图（图片生成）</div>
+      <label className="settings-row">
+        <input
+          type="checkbox"
+          checked={draft.enabled}
+          onChange={(e) => set({ enabled: e.target.checked })}
+        />
+        启用（在确认页后台生成终稿插画，失败自动回退手绘图）
+      </label>
+      <label className="settings-row">
+        <span>API 地址</span>
+        <input
+          type="text"
+          value={draft.baseUrl}
+          placeholder="/imggen/v1（同源代理）或 mock（演示）"
+          onChange={(e) => set({ baseUrl: e.target.value.trim() })}
+        />
+      </label>
+      <label className="settings-row">
+        <span>API Key</span>
+        <input
+          type="password"
+          value={draft.apiKey}
+          placeholder="sk-…"
+          onChange={(e) => set({ apiKey: e.target.value })}
+        />
+      </label>
+      <label className="settings-row">
+        <span>模型</span>
+        <input
+          type="text"
+          value={draft.model}
+          onChange={(e) => set({ model: e.target.value.trim() })}
+        />
+      </label>
+      <div className="settings-actions">
+        <button
+          className="settings-save"
+          type="button"
+          onClick={() => { props.onSave(draft); setSaved(true); }}
+        >
+          {saved ? '已保存 ✓' : '保存'}
+        </button>
+        <span className="settings-status">{statusText}{props.magic.status === 'loading' ? '（生成中…）' : ''}</span>
+      </div>
+      <div className="settings-title">生成记录（内部骨架）</div>
+      <pre className="settings-json">{props.devInfo}</pre>
     </div>
   );
 }
