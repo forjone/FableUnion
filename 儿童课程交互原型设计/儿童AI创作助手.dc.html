@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #F4E4CE; }
+  @keyframes kFloat { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-10px) } }
+  @keyframes kFloatSlow { 0%,100%{ transform: translateY(0) rotate(-2deg) } 50%{ transform: translateY(-6px) rotate(2deg) } }
+  @keyframes kPop { 0%{ transform: scale(0.6); opacity: 0 } 60%{ transform: scale(1.06) } 100%{ transform: scale(1); opacity: 1 } }
+  @keyframes kRing { 0%{ transform: scale(1); opacity: 0.55 } 100%{ transform: scale(2.1); opacity: 0 } }
+  @keyframes kWave { 0%,100%{ transform: scaleY(0.35) } 50%{ transform: scaleY(1) } }
+  @keyframes kSpark { 0%,100%{ transform: scale(0.7); opacity: 0.3 } 50%{ transform: scale(1.15); opacity: 1 } }
+  @keyframes kBob { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-4px) } }
+  @keyframes kFlame { 0%,100%{ transform: scaleX(1) scaleY(1); opacity: 0.9 } 50%{ transform: scaleX(1.15) scaleY(0.9); opacity: 1 } }
+  @keyframes kDash { to { stroke-dashoffset: 0 } }
+  @keyframes kSlideUp { from { transform: translateY(24px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+</style>
+</helmet>
+<div ref="{{ setHost }}" style="width:100%;display:flex;align-items:center;justify-content:center;padding:28px;background:radial-gradient(circle at 30% 20%, #FBEAD0, #F4E4CE 70%);font-family:'Noto Sans SC',system-ui,sans-serif;overflow:hidden">
+
+  <div ref="{{ setInner }}" style="width:1194px;height:834px;flex:none;transform-origin:center center;background:#FFFBF4;border-radius:44px;position:relative;overflow:hidden;box-shadow:0 40px 90px -30px rgba(120,70,30,0.45),0 0 0 10px #FFFFFF,0 0 0 13px rgba(238,122,69,0.25)">
+
+    <!-- Top journey bar -->
+    <div style="position:absolute;top:0;left:0;right:0;height:74px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;z-index:40">
+      <button onClick="{{ goHome }}" style="display:flex;align-items:center;gap:8px;border:none;background:rgba(62,49,40,0.06);color:#5B4A3E;font-family:'Noto Sans SC';font-weight:700;font-size:15px;padding:9px 16px;border-radius:16px;cursor:pointer">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
+        从头开始
+      </button>
+      <div style="display:flex;align-items:center;gap:12px">
+        <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
+          <div style="width:12px;height:12px;border-radius:50%;background:{{ d }};transition:background .4s"></div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;background:rgba(238,122,69,0.12);padding:8px 14px;border-radius:16px">
+        <div style="width:22px;height:22px;border-radius:8px;background:#EE7A45;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'ZCOOL KuaiLe';font-size:15px">灵</div>
+        <span style="font-family:'ZCOOL KuaiLe';color:#D85C2E;font-size:16px">小灵造造</span>
+      </div>
+    </div>
+
+    <!-- ===================== WELCOME ===================== -->
+    <sc-if value="{{ sWelcome }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:74px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 60px">
+      <div style="position:relative;width:210px;height:210px;animation:kFloat 3.4s ease-in-out infinite">
+        <div style="position:absolute;inset:0;background:linear-gradient(160deg,#FF9256,#EE7A45);border-radius:47% 53% 50% 50%/55% 55% 45% 45%;box-shadow:inset -10px -14px 0 rgba(0,0,0,0.06)"></div>
+        <div style="position:absolute;left:44px;top:78px;width:38px;height:44px;background:#fff;border-radius:50%"></div>
+        <div style="position:absolute;right:44px;top:78px;width:38px;height:44px;background:#fff;border-radius:50%"></div>
+        <div style="position:absolute;left:56px;top:96px;width:18px;height:18px;background:#3E2A1E;border-radius:50%"></div>
+        <div style="position:absolute;right:56px;top:96px;width:18px;height:18px;background:#3E2A1E;border-radius:50%"></div>
+        <div style="position:absolute;left:52px;top:98px;width:6px;height:6px;background:#fff;border-radius:50%"></div>
+        <div style="position:absolute;right:64px;top:98px;width:6px;height:6px;background:#fff;border-radius:50%"></div>
+        <div style="position:absolute;left:36px;top:126px;width:24px;height:14px;background:rgba(255,120,120,0.5);border-radius:50%"></div>
+        <div style="position:absolute;right:36px;top:126px;width:24px;height:14px;background:rgba(255,120,120,0.5);border-radius:50%"></div>
+        <div style="position:absolute;left:88px;top:124px;width:34px;height:18px;border:4px solid #3E2A1E;border-top:none;border-radius:0 0 30px 30px"></div>
+        <div style="position:absolute;top:-14px;left:96px;width:16px;height:16px;background:#FFC24B;border-radius:3px;transform:rotate(45deg);animation:kSpark 2s ease-in-out infinite"></div>
+        <div style="position:absolute;top:24px;right:6px;width:11px;height:11px;background:#57B368;border-radius:3px;transform:rotate(45deg);animation:kSpark 2.4s ease-in-out .5s infinite"></div>
+      </div>
+      <h1 style="font-family:'ZCOOL KuaiLe';font-size:52px;color:#3E3128;margin:26px 0 10px;letter-spacing:1px">你想造个什么呀？</h1>
+      <p style="font-size:20px;color:#8A7A6E;margin:0 0 40px;font-weight:500">按住下面的大圆圈，把你的点子说给我听～</p>
+      <button onClick="{{ startListen }}" style="position:relative;width:150px;height:150px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(160deg,#FF9256,#EE7A45);box-shadow:0 18px 34px -10px rgba(238,122,69,0.7);display:flex;align-items:center;justify-content:center">
+        <svg width="58" height="58" viewBox="0 0 24 24" fill="#fff"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M6 11a6 6 0 0 0 12 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M12 17v4" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <p style="font-size:15px;color:#B6A594;margin-top:24px;font-weight:500">点一下就开始说话</p>
+    </div>
+    </sc-if>
+
+    <!-- ===================== LISTENING ===================== -->
+    <sc-if value="{{ sListen }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:74px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 90px">
+      <div style="position:relative;width:150px;height:150px;margin-bottom:20px">
+        <div style="position:absolute;inset:0;border-radius:50%;background:#EE7A45;opacity:0.4;animation:kRing 1.8s ease-out infinite"></div>
+        <div style="position:absolute;inset:0;border-radius:50%;background:#EE7A45;opacity:0.4;animation:kRing 1.8s ease-out .9s infinite"></div>
+        <div style="position:absolute;inset:0;border-radius:50%;background:linear-gradient(160deg,#FF9256,#EE7A45);display:flex;align-items:flex-end;justify-content:center;gap:6px;padding-bottom:52px">
+          <div style="width:8px;height:34px;background:#fff;border-radius:6px;animation:kWave 0.7s ease-in-out infinite"></div>
+          <div style="width:8px;height:52px;background:#fff;border-radius:6px;animation:kWave 0.7s ease-in-out .12s infinite"></div>
+          <div style="width:8px;height:40px;background:#fff;border-radius:6px;animation:kWave 0.7s ease-in-out .24s infinite"></div>
+          <div style="width:8px;height:56px;background:#fff;border-radius:6px;animation:kWave 0.7s ease-in-out .36s infinite"></div>
+          <div style="width:8px;height:30px;background:#fff;border-radius:6px;animation:kWave 0.7s ease-in-out .48s infinite"></div>
+        </div>
+      </div>
+      <p style="font-family:'ZCOOL KuaiLe';font-size:22px;color:#D85C2E;margin:0 0 22px">我在认真听哦……</p>
+      <div style="min-height:120px;max-width:720px;background:#FFF3E2;border:2px dashed rgba(238,122,69,0.4);border-radius:26px;padding:26px 34px;display:flex;align-items:center;justify-content:center">
+        <p style="font-size:30px;line-height:1.5;color:#3E3128;font-weight:700;margin:0;text-align:center">{{ transcript }}<span style="display:inline-block;width:3px;height:30px;background:#EE7A45;margin-left:4px;vertical-align:-4px;border-radius:2px;animation:kSpark .8s steps(1) infinite"></span></p>
+      </div>
+      <sc-if value="{{ listenDone }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ toSketch }}" style="margin-top:34px;background:#57B368;color:#fff;border:none;font-family:'ZCOOL KuaiLe';font-size:24px;padding:16px 44px;border-radius:22px;cursor:pointer;box-shadow:0 12px 24px -8px rgba(87,179,104,0.7);animation:kPop .4s ease">对，就是这个！</button>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ===================== SKETCH / DIVERGE ===================== -->
+    <sc-if value="{{ sSketch }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:74px 0 0 0;display:flex;flex-direction:column;align-items:center;padding:16px 60px 0">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+        <div style="position:relative;width:66px;height:66px;flex-shrink:0;animation:kFloatSlow 3s ease-in-out infinite">
+          <div style="position:absolute;inset:0;background:linear-gradient(160deg,#FF9256,#EE7A45);border-radius:47% 53% 50% 50%/55% 55% 45% 45%"></div>
+          <div style="position:absolute;left:14px;top:26px;width:13px;height:15px;background:#fff;border-radius:50%"></div>
+          <div style="position:absolute;right:14px;top:26px;width:13px;height:15px;background:#fff;border-radius:50%"></div>
+          <div style="position:absolute;left:18px;top:31px;width:6px;height:6px;background:#3E2A1E;border-radius:50%"></div>
+          <div style="position:absolute;right:18px;top:31px;width:6px;height:6px;background:#3E2A1E;border-radius:50%"></div>
+        </div>
+        <div style="background:#fff;border:2px solid rgba(238,122,69,0.25);border-radius:20px 20px 20px 4px;padding:14px 22px;box-shadow:0 8px 18px -10px rgba(120,70,30,0.4)">
+          <p style="margin:0;font-size:20px;font-weight:700;color:#3E3128">{{ sketchPrompt }}</p>
+        </div>
+      </div>
+
+      <sc-if value="{{ showDiverge }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;gap:34px;margin-top:6px">
+        <!-- Grass track -->
+        <button onClick="{{ pickGrass }}" style="width:400px;border:4px solid transparent;background:#fff;border-radius:30px;padding:0;cursor:pointer;overflow:hidden;box-shadow:0 18px 36px -18px rgba(120,70,30,0.45);animation:kSlideUp .5s ease">
+          <div style="height:250px;position:relative;background:linear-gradient(#BDE3F5,#DCF1F8)">
+            <div style="position:absolute;right:34px;top:26px;width:52px;height:52px;background:#FFD35B;border-radius:50%;box-shadow:0 0 0 10px rgba(255,211,91,0.3)"></div>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:110px;background:linear-gradient(#6FC96A,#57B368)"></div>
+            <div style="position:absolute;left:0;right:0;bottom:44px;height:16px;background:repeating-linear-gradient(90deg,#F4E4CE 0 30px,transparent 30px 60px)"></div>
+            <svg viewBox="0 0 120 90" width="120" style="position:absolute;left:150px;bottom:56px;animation:kBob 1s ease-in-out infinite"><path d="M22 70 Q10 66 14 52 Q6 44 18 40 Q22 20 44 22 Q58 6 82 16 Q104 20 100 46 L104 70 L92 70 L88 56 Q70 66 50 60 L46 70 Z" fill="#5AAE5F"/><circle cx="72" cy="30" r="4" fill="#fff"/><circle cx="73" cy="31" r="2" fill="#2A2016"/></svg>
+          </div>
+          <div style="padding:16px;font-family:'ZCOOL KuaiLe';font-size:26px;color:#3E3128">草地赛道</div>
+        </button>
+        <!-- Volcano track -->
+        <button onClick="{{ pickVolcano }}" style="width:400px;border:4px solid transparent;background:#fff;border-radius:30px;padding:0;cursor:pointer;overflow:hidden;box-shadow:0 18px 36px -18px rgba(120,70,30,0.45);animation:kSlideUp .5s ease .08s both">
+          <div style="height:250px;position:relative;background:linear-gradient(#FFD3A6,#FFE1B0)">
+            <div style="position:absolute;left:150px;bottom:110px;width:0;height:0;border-left:70px solid transparent;border-right:70px solid transparent;border-bottom:110px solid #A5573A"></div>
+            <div style="position:absolute;left:196px;bottom:196px;width:28px;height:34px;background:#FF7A3C;border-radius:50% 50% 40% 40%;filter:blur(1px);animation:kFlame .5s ease-in-out infinite"></div>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:110px;background:linear-gradient(#E8894A,#D5732F)"></div>
+            <div style="position:absolute;left:0;right:0;bottom:44px;height:16px;background:repeating-linear-gradient(90deg,#3E2A1E 0 30px,transparent 30px 60px);opacity:.35"></div>
+            <svg viewBox="0 0 120 90" width="120" style="position:absolute;left:150px;bottom:56px;animation:kBob 1s ease-in-out infinite"><path d="M22 70 Q10 66 14 52 Q6 44 18 40 Q22 20 44 22 Q58 6 82 16 Q104 20 100 46 L104 70 L92 70 L88 56 Q70 66 50 60 L46 70 Z" fill="#5AAE5F"/><circle cx="72" cy="30" r="4" fill="#fff"/><circle cx="73" cy="31" r="2" fill="#2A2016"/><path d="M100 34 q22 -4 34 6 q-16 2 -22 8 q10 -2 16 4 q-18 6 -30 -2 z" fill="#FF7A3C"/><path d="M104 34 q14 -2 22 4 q-12 2 -16 6 q6 0 10 4 q-14 2 -22 -4 z" fill="#FFC24B"/></svg>
+          </div>
+          <div style="padding:16px;font-family:'ZCOOL KuaiLe';font-size:26px;color:#3E3128">火山赛道</div>
+        </button>
+      </div>
+      <p style="font-size:15px;color:#B6A594;margin-top:22px;font-weight:500">点一个你更喜欢的～不用着急</p>
+      </sc-if>
+
+      <sc-if value="{{ showAddonSketch }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;align-items:center;margin-top:6px">
+        <div style="width:440px;background:#fff;border-radius:30px;overflow:hidden;box-shadow:0 18px 36px -18px rgba(120,70,30,0.45);animation:kSlideUp .5s ease">
+          <div style="height:240px;position:relative;background:linear-gradient(#2B2350,#4A3C7A)">
+            <div style="position:absolute;left:70px;top:40px;width:16px;height:16px;background:#FFE27A;border-radius:3px;transform:rotate(45deg);animation:kSpark 1.6s ease-in-out infinite"></div>
+            <div style="position:absolute;left:190px;top:70px;width:22px;height:22px;background:#FFE27A;border-radius:4px;transform:rotate(45deg);animation:kSpark 1.9s ease-in-out .4s infinite"></div>
+            <div style="position:absolute;right:80px;top:50px;width:16px;height:16px;background:#FFE27A;border-radius:3px;transform:rotate(45deg);animation:kSpark 1.7s ease-in-out .7s infinite"></div>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:96px;background:linear-gradient(#5A4C8C,#463A72)"></div>
+            <svg viewBox="0 0 120 90" width="110" style="position:absolute;left:170px;bottom:50px;animation:kBob 1s ease-in-out infinite"><path d="M22 70 Q10 66 14 52 Q6 44 18 40 Q22 20 44 22 Q58 6 82 16 Q104 20 100 46 L104 70 L92 70 L88 56 Q70 66 50 60 L46 70 Z" fill="#5AAE5F"/><circle cx="72" cy="30" r="4" fill="#fff"/></svg>
+          </div>
+          <div style="padding:16px;font-family:'ZCOOL KuaiLe';font-size:24px;color:#3E3128;text-align:center">加上会发光的星星！</div>
+        </div>
+        <button onClick="{{ toConfirm }}" style="margin-top:26px;background:#57B368;color:#fff;border:none;font-family:'ZCOOL KuaiLe';font-size:24px;padding:16px 44px;border-radius:22px;cursor:pointer;box-shadow:0 12px 24px -8px rgba(87,179,104,0.7)">好耶，就加这个！</button>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ===================== CONFIRM (explicit gate) ===================== -->
+    <sc-if value="{{ sConfirm }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:74px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 60px">
+      <div style="display:inline-flex;align-items:center;gap:8px;background:#FFC24B;color:#6A4A12;font-family:'ZCOOL KuaiLe';font-size:16px;padding:7px 18px;border-radius:14px;margin-bottom:16px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#6A4A12"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 16.7 5.7 21l2.3-7.2-6-4.4h7.6z"/></svg>
+        最后确认一下
+      </div>
+      <div style="width:640px;border-radius:34px;overflow:hidden;box-shadow:0 26px 50px -24px rgba(120,70,30,0.5);animation:kPop .5s ease">
+        <div style="height:300px;position:relative;background:{{ heroSky }}">
+          <div style="position:absolute;right:44px;top:34px;width:60px;height:60px;background:#FFD35B;border-radius:50%;box-shadow:0 0 0 12px rgba(255,211,91,0.25)"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;height:130px;background:{{ heroGround }}"></div>
+          <div style="position:absolute;left:0;right:0;bottom:52px;height:18px;background:repeating-linear-gradient(90deg,#FFF3E2 0 34px,transparent 34px 68px);opacity:.6"></div>
+          <svg viewBox="0 0 120 90" width="180" style="position:absolute;left:190px;bottom:66px;animation:kBob .9s ease-in-out infinite"><path d="M22 70 Q10 66 14 52 Q6 44 18 40 Q22 20 44 22 Q58 6 82 16 Q104 20 100 46 L104 70 L92 70 L88 56 Q70 66 50 60 L46 70 Z" fill="#5AAE5F"/><circle cx="72" cy="30" r="5" fill="#fff"/><circle cx="73" cy="31" r="2.4" fill="#2A2016"/><path d="M100 32 q26 -5 40 7 q-18 3 -26 9 q12 -2 18 5 q-20 7 -34 -3 z" fill="#FF7A3C"/><path d="M104 33 q16 -3 26 5 q-14 3 -18 7 q7 0 12 5 q-16 2 -26 -5 z" fill="#FFC24B"/></svg>
+        </div>
+      </div>
+      <p style="font-family:'ZCOOL KuaiLe';font-size:28px;color:#3E3128;margin:24px 0 4px;text-align:center;max-width:720px;line-height:1.5">{{ confirmLine }}</p>
+      <p style="font-size:16px;color:#8A7A6E;margin:0 0 26px;font-weight:500">对的话我就开始造啦，要用点小魔法哦～</p>
+      <div style="display:flex;gap:20px">
+        <button onClick="{{ confirmNo }}" style="display:flex;align-items:center;gap:8px;background:#fff;color:#8A7A6E;border:3px solid rgba(62,49,40,0.12);font-family:'ZCOOL KuaiLe';font-size:22px;padding:14px 34px;border-radius:20px;cursor:pointer">再改改</button>
+        <button onClick="{{ confirmYes }}" style="display:flex;align-items:center;gap:10px;background:#EE7A45;color:#fff;border:none;font-family:'ZCOOL KuaiLe';font-size:26px;padding:14px 48px;border-radius:20px;cursor:pointer;box-shadow:0 14px 28px -8px rgba(238,122,69,0.7)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5 11-12"/></svg>
+          对！开始造
+        </button>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===================== BUILD ===================== -->
+    <sc-if value="{{ sBuild }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:74px 0 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 90px">
+      <div style="position:relative;width:170px;height:170px;animation:kFloat 2.6s ease-in-out infinite;margin-bottom:8px">
+        <div style="position:absolute;inset:0;background:linear-gradient(160deg,#FF9256,#EE7A45);border-radius:47% 53% 50% 50%/55% 55% 45% 45%"></div>
+        <div style="position:absolute;left:36px;top:64px;width:30px;height:36px;background:#fff;border-radius:50%"></div>
+        <div style="position:absolute;right:36px;top:64px;width:30px;height:36px;background:#fff;border-radius:50%"></div>
+        <div style="position:absolute;left:46px;top:82px;width:14px;height:14px;background:#3E2A1E;border-radius:50%"></div>
+        <div style="position:absolute;right:46px;top:82px;width:14px;height:14px;background:#3E2A1E;border-radius:50%"></div>
+        <div style="position:absolute;left:74px;top:104px;width:26px;height:14px;border:3px solid #3E2A1E;border-top:none;border-radius:0 0 24px 24px"></div>
+        <div style="position:absolute;top:2px;left:-14px;width:44px;height:44px;background:#FFC24B;border-radius:6px;transform:rotate(45deg);animation:kSpark 1.4s ease-in-out infinite;box-shadow:0 0 0 0 #fff"></div>
+        <div style="position:absolute;top:2px;left:-14px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'ZCOOL KuaiLe';font-size:22px;animation:kSpark 1.4s ease-in-out infinite">✦</div>
+      </div>
+      <p style="font-family:'ZCOOL KuaiLe';font-size:34px;color:#D85C2E;margin:12px 0 30px">{{ buildLine }}</p>
+      <div style="width:560px;height:22px;background:#FBE7D2;border-radius:14px;overflow:hidden">
+        <div style="height:100%;width:{{ buildPct }};background:linear-gradient(90deg,#FFC24B,#EE7A45);border-radius:14px;transition:width .6s cubic-bezier(.4,1.2,.5,1)"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:34px;width:420px">
+        <sc-for list="{{ buildSteps }}" as="s" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:14px;font-size:18px;font-weight:700;color:{{ s.color }};opacity:{{ s.opacity }};transition:all .4s">
+            <div style="width:26px;height:26px;border-radius:50%;flex-shrink:0;background:{{ s.dot }};display:flex;align-items:center;justify-content:center;color:#fff">{{ s.mark }}</div>
+            {{ s.text }}
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ===================== DONE / GAME ===================== -->
+    <sc-if value="{{ sDone }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;inset:74px 0 0 0;display:flex;flex-direction:column;align-items:center;padding:14px 40px 0">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <h2 style="font-family:'ZCOOL KuaiLe';font-size:34px;color:#3E3128;margin:0">{{ doneTitle }}</h2>
+        <span style="background:#57B368;color:#fff;font-family:'ZCOOL KuaiLe';font-size:15px;padding:5px 14px;border-radius:12px">造好啦</span>
+      </div>
+      <div style="position:relative;border-radius:26px;overflow:hidden;box-shadow:0 20px 44px -20px rgba(120,70,30,0.5);border:4px solid #fff">
+        <canvas ref="{{ setCanvas }}" width="900" height="360" style="display:block;width:900px;height:360px"></canvas>
+        <sc-if value="{{ gameOver }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:rgba(46,32,22,0.62);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+            <p style="font-family:'ZCOOL KuaiLe';font-size:40px;color:#fff;margin:0">跑了 {{ score }} 米！</p>
+            <button onClick="{{ restartGame }}" style="background:#FFC24B;color:#6A4A12;border:none;font-family:'ZCOOL KuaiLe';font-size:24px;padding:14px 40px;border-radius:20px;cursor:pointer">再玩一次</button>
+          </div>
+        </sc-if>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;margin-top:18px">
+        <button onClick="{{ jump }}" style="display:flex;align-items:center;gap:8px;background:#5BB8EA;color:#fff;border:none;font-family:'ZCOOL KuaiLe';font-size:22px;padding:13px 30px;border-radius:18px;cursor:pointer;box-shadow:0 10px 20px -8px rgba(91,184,234,0.7)">跳一下</button>
+        <button onClick="{{ breatheFire }}" style="display:flex;align-items:center;gap:8px;background:#EE5A3C;color:#fff;border:none;font-family:'ZCOOL KuaiLe';font-size:22px;padding:13px 30px;border-radius:18px;cursor:pointer;box-shadow:0 10px 20px -8px rgba(238,90,60,0.7)">喷火！</button>
+        <div style="width:1px;height:34px;background:rgba(62,49,40,0.12)"></div>
+        <button onClick="{{ startListen }}" style="display:flex;align-items:center;gap:8px;background:#fff;color:#D85C2E;border:3px solid rgba(238,122,69,0.35);font-family:'ZCOOL KuaiLe';font-size:22px;padding:11px 26px;border-radius:18px;cursor:pointer">还想加点什么</button>
+      </div>
+      <p style="font-size:14px;color:#B6A594;margin-top:14px;font-weight:500">用空格键跳、F 键喷火，也可以点上面的按钮</p>
+    </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1250,&quot;height&quot;:880},&quot;embed&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = {
+    stage: 'welcome',
+    transcript: '',
+    listenDone: false,
+    diverge: null,      // 'grass' | 'volcano'
+    round: 0,           // 0 first pass, 1+ iterations
+    buildStep: 0,
+    score: 0,
+    gameOver: false,
+  };
+  timers = [];
+
+  pushT(t) { this.timers.push(t); }
+  clearTimers() { this.timers.forEach(t => { clearTimeout(t); clearInterval(t); }); this.timers = []; }
+
+  // ---------- scale-to-fit (lets the app sit inside macOS / iOS frames) ----------
+  setHost(el) {
+    this.host = el;
+    if (!el) { if (this._ro) { this._ro.disconnect(); this._ro = null; } return; }
+    const embed = !!this.props.embed;
+    el.style.height = embed ? '100%' : 'auto';
+    el.style.minHeight = embed ? '0' : '100vh';
+    if (!this._ro && window.ResizeObserver) {
+      this._ro = new ResizeObserver(() => this.fit());
+      this._ro.observe(el);
+    }
+    this.fit();
+  }
+  setInner(el) { this.inner = el; this.fit(); }
+  fit() {
+    const h = this.host, box = this.inner;
+    if (!h || !box) return;
+    const pad = 48;
+    const aw = h.clientWidth - pad, ah = h.clientHeight - pad;
+    if (aw <= 0) return;
+    let s = Math.min(1, aw / 1194, ah > 0 ? ah / 834 : 1);
+    if (!isFinite(s) || s <= 0) s = 1;
+    box.style.transform = 'scale(' + s + ')';
+    // collapse the empty space the scaled card leaves so the host hugs it
+    box.style.marginTop = (834 * (s - 1) / 2) + 'px';
+    box.style.marginBottom = (834 * (s - 1) / 2) + 'px';
+    box.style.marginLeft = (1194 * (s - 1) / 2) + 'px';
+    box.style.marginRight = (1194 * (s - 1) / 2) + 'px';
+  }
+
+  componentDidMount() {
+    this._onResize = () => this.fit();
+    window.addEventListener('resize', this._onResize);
+    this.fit();
+    this._key = (e) => {
+      if (this.state.stage !== 'done') return;
+      if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); this.jump(); }
+      if (e.key === 'f' || e.key === 'F') { e.preventDefault(); this.breatheFire(); }
+    };
+    window.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount() {
+    this.clearTimers();
+    window.removeEventListener('keydown', this._key);
+    if (this._onResize) window.removeEventListener('resize', this._onResize);
+    if (this._ro) this._ro.disconnect();
+    if (this.raf) cancelAnimationFrame(this.raf);
+  }
+
+  goHome() {
+    this.clearTimers();
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.setState({ stage: 'welcome', transcript: '', listenDone: false, diverge: null, round: 0, buildStep: 0, score: 0, gameOver: false });
+  }
+
+  startListen() {
+    this.clearTimers();
+    if (this.raf) cancelAnimationFrame(this.raf);
+    const line = this.state.round === 0
+      ? '我要做一个恐龙赛跑的游戏……恐龙一定要会喷火！'
+      : '我还想加一个……跑起来能捡到会发光的星星！';
+    this.setState({ stage: 'listening', transcript: '', listenDone: false });
+    let i = 0;
+    const iv = setInterval(() => {
+      i++;
+      this.setState({ transcript: line.slice(0, i) });
+      if (i >= line.length) { clearInterval(iv); this.setState({ listenDone: true }); }
+    }, 60);
+    this.pushT(iv);
+  }
+
+  toSketch() { this.setState({ stage: 'sketch' }); }
+
+  pickGrass() { this.setState({ diverge: 'grass' }); this.afterPick(); }
+  pickVolcano() { this.setState({ diverge: 'volcano' }); this.afterPick(); }
+  afterPick() {
+    const t = setTimeout(() => this.setState({ stage: 'confirm' }), 360);
+    this.pushT(t);
+  }
+  toConfirm() { this.setState({ stage: 'confirm' }); }
+
+  confirmNo() { this.setState({ stage: 'sketch' }); }
+  confirmYes() {
+    this.clearTimers();
+    this.setState({ stage: 'build', buildStep: 0 });
+    const total = this.buildStepData().length;
+    let n = 0;
+    const iv = setInterval(() => {
+      n++;
+      this.setState({ buildStep: n });
+      if (n >= total) {
+        clearInterval(iv);
+        const t = setTimeout(() => this.setState(s => ({ stage: 'done', round: s.round + 1, gameOver: false })), 850);
+        this.pushT(t);
+      }
+    }, 1050);
+    this.pushT(iv);
+  }
+
+  buildStepData() {
+    const base = [
+      '把恐龙们从蛋里叫醒',
+      '给每只恐龙穿上小跑鞋',
+      '点燃它们喷火的小火苗',
+      this.state.diverge === 'volcano' ? '铺好热腾腾的火山赛道' : '铺好绿油油的草地赛道',
+    ];
+    if (this.state.round >= 1) base.push('撒上一把会发光的星星');
+    base.push('快完成啦，系上终点彩带');
+    return base;
+  }
+
+  // stable, memoized handlers (created once) — critical for the canvas ref
+  handlers() {
+    if (!this._h) {
+      this._h = {
+        goHome: () => this.goHome(),
+        startListen: () => this.startListen(),
+        toSketch: () => this.toSketch(),
+        pickGrass: () => this.pickGrass(),
+        pickVolcano: () => this.pickVolcano(),
+        toConfirm: () => this.toConfirm(),
+        confirmNo: () => this.confirmNo(),
+        confirmYes: () => this.confirmYes(),
+        restartGame: () => this.restartGame(),
+        jump: () => this.jump(),
+        breatheFire: () => this.breatheFire(),
+        setCanvas: (el) => this.setCanvas(el),
+        setHost: (el) => this.setHost(el),
+        setInner: (el) => this.setInner(el),
+      };
+    }
+    return this._h;
+  }
+
+  // ---------- derived render values ----------
+  renderVals() {
+    const st = this.state.stage;
+    const trackName = this.state.diverge === 'volcano' ? '火山' : '草地';
+    const hasStars = this.state.round >= 1;
+
+    // journey dots
+    const order = ['welcome', 'listening', 'sketch', 'confirm', 'build', 'done'];
+    const idx = order.indexOf(st);
+    const dots = [0, 1, 2, 3, 4].map(i => i <= (idx - 1) ? '#EE7A45' : (i === idx ? '#FFC24B' : 'rgba(62,49,40,0.12)'));
+
+    // build steps view
+    const steps = this.buildStepData();
+    const cur = this.state.buildStep;
+    const buildSteps = steps.map((text, i) => {
+      const done = i < cur, active = i === cur;
+      return {
+        text,
+        color: done ? '#57B368' : (active ? '#3E3128' : '#C7B8AA'),
+        opacity: (done || active) ? 1 : 0.5,
+        dot: done ? '#57B368' : (active ? '#EE7A45' : 'rgba(62,49,40,0.12)'),
+        mark: done ? '✓' : (active ? '·' : ''),
+      };
+    });
+    const buildLine = steps[Math.min(cur, steps.length - 1)] + '…';
+    const buildPct = Math.round((cur / steps.length) * 100) + '%';
+
+    const heroSky = this.state.diverge === 'volcano'
+      ? 'linear-gradient(#FFD3A6,#FFE1B0)' : 'linear-gradient(#BDE3F5,#DCF1F8)';
+    const heroGround = this.state.diverge === 'volcano'
+      ? 'linear-gradient(#E8894A,#D5732F)' : 'linear-gradient(#6FC96A,#57B368)';
+
+    const confirmLine = hasStars
+      ? '会喷火的恐龙，在' + trackName + '赛道上一边赛跑一边捡星星，对不对？'
+      : '一个会喷火的恐龙，在' + trackName + '赛道上赛跑的游戏，对不对？';
+
+    const doneTitle = hasStars ? '会喷火·会捡星星的恐龙赛跑' : '会喷火的恐龙赛跑';
+
+    return {
+      sWelcome: st === 'welcome',
+      sListen: st === 'listening',
+      sSketch: st === 'sketch',
+      sConfirm: st === 'confirm',
+      sBuild: st === 'build',
+      sDone: st === 'done',
+      dots,
+      transcript: this.state.transcript,
+      listenDone: this.state.listenDone,
+      showDiverge: this.state.diverge === null,
+      showAddonSketch: this.state.diverge !== null,
+      sketchPrompt: this.state.diverge === null
+        ? '好耶！我先画了两个样子，你更喜欢哪个赛道？'
+        : '我给你的游戏加了会发光的星星，看看喜不喜欢～',
+      buildSteps, buildLine, buildPct,
+      heroSky, heroGround, confirmLine, doneTitle,
+      score: this.state.score,
+      gameOver: this.state.gameOver,
+      ...this.handlers(),
+    };
+  }
+
+  // ---------- canvas mini game ----------
+  setCanvas(el) {
+    this.canvas = el;
+    if (el && !this._gameInit) { this._gameInit = true; this.initGame(); }
+    if (!el) { this._gameInit = false; if (this.raf) cancelAnimationFrame(this.raf); }
+  }
+
+  initGame() {
+    const hasStars = this.state.round >= 1;
+    const volcano = this.state.diverge === 'volcano';
+    this.g = {
+      groundY: 300, dino: { x: 120, y: 300, vy: 0, w: 66, h: 60 },
+      grav: 0.9, jumpV: -15, onGround: true,
+      obs: [], stars: [], scroll: 0, speed: 6, spawn: 0, starSpawn: 40,
+      fire: 0, score: 0, run: true, hasStars, volcano, t: 0,
+    };
+    this.setState({ gameOver: false, score: 0 });
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.loop();
+  }
+
+  restartGame() { this.initGame(); }
+
+  jump() {
+    if (!this.g || !this.g.run) return;
+    if (this.g.onGround) { this.g.dino.vy = this.g.jumpV; this.g.onGround = false; }
+  }
+  breatheFire() { if (this.g && this.g.run) this.g.fire = 18; }
+
+  loop() {
+    const c = this.canvas; if (!c) return;
+    const ctx = c.getContext('2d'); const g = this.g;
+    const W = 900, H = 360;
+    g.t++;
+
+    // physics
+    const d = g.dino;
+    d.vy += g.grav; d.y += d.vy;
+    if (d.y >= g.groundY) { d.y = g.groundY; d.vy = 0; g.onGround = true; }
+    g.scroll += g.speed; g.speed += 0.0015;
+    if (g.run) g.score += 1;
+
+    // spawn obstacles
+    g.spawn--;
+    if (g.spawn <= 0) { g.obs.push({ x: W + 20, w: 26 + Math.random() * 16, h: 34 + Math.random() * 26 }); g.spawn = 70 + Math.random() * 60; }
+    g.obs.forEach(o => o.x -= g.speed);
+    // fire clears near obstacles
+    if (g.fire > 0) { g.obs = g.obs.filter(o => !(o.x < d.x + 220 && o.x > d.x)); g.fire--; }
+    g.obs = g.obs.filter(o => o.x > -60);
+
+    // stars
+    if (g.hasStars) {
+      g.starSpawn--;
+      if (g.starSpawn <= 0) { g.stars.push({ x: W + 20, y: 150 + Math.random() * 90, got: false }); g.starSpawn = 90 + Math.random() * 80; }
+      g.stars.forEach(s => s.x -= g.speed);
+      g.stars = g.stars.filter(s => s.x > -40);
+    }
+
+    // collision
+    for (const o of g.obs) {
+      const oy = g.groundY + 40 - o.h;
+      if (o.x < d.x + d.w - 16 && o.x + o.w > d.x + 12 && d.y + 40 > oy + 6) {
+        if (g.fire <= 0) { g.run = false; }
+      }
+    }
+    // star pickup
+    if (g.hasStars) for (const s of g.stars) {
+      if (!s.got && Math.abs(s.x - (d.x + 30)) < 34 && Math.abs(s.y - (d.y - 6)) < 40) { s.got = true; g.score += 40; }
+    }
+
+    this.draw(ctx, W, H);
+
+    if (g.run) { this.raf = requestAnimationFrame(() => this.loop()); }
+    else if (!this.state.gameOver) { this.setState({ gameOver: true, score: Math.floor(g.score / 6) }); }
+  }
+
+  draw(ctx, W, H) {
+    const g = this.g; const d = g.dino;
+    // sky
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    if (g.volcano) { sky.addColorStop(0, '#FFD3A6'); sky.addColorStop(1, '#FFE9CC'); }
+    else { sky.addColorStop(0, '#BDE3F5'); sky.addColorStop(1, '#E4F4FB'); }
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+    // sun
+    ctx.fillStyle = '#FFD35B'; ctx.beginPath(); ctx.arc(W - 90, 66, 30, 0, 7); ctx.fill();
+
+    // ground
+    const gy = g.groundY + 40;
+    ctx.fillStyle = g.volcano ? '#D5732F' : '#57B368';
+    ctx.fillRect(0, gy, W, H - gy);
+    ctx.fillStyle = g.volcano ? '#C0692A' : '#4EA25C';
+    ctx.fillRect(0, gy, W, 8);
+    // dashes on track
+    ctx.fillStyle = 'rgba(255,243,226,0.55)';
+    for (let x = -(g.scroll % 68); x < W; x += 68) ctx.fillRect(x, gy + 26, 34, 8);
+
+    // stars
+    if (g.hasStars) for (const s of g.stars) { if (s.got) continue; this.star(ctx, s.x, s.y, 12, '#FFE27A'); }
+
+    // obstacles (rocks)
+    for (const o of g.obs) {
+      const oy = gy - o.h;
+      ctx.fillStyle = g.volcano ? '#7A3B22' : '#8A6A4A';
+      ctx.beginPath(); ctx.moveTo(o.x, gy);
+      ctx.lineTo(o.x + o.w * 0.5, oy); ctx.lineTo(o.x + o.w, gy); ctx.closePath(); ctx.fill();
+    }
+
+    // dino
+    this.drawDino(ctx, d.x, d.y, g.fire > 0);
+
+    // score
+    ctx.fillStyle = '#3E3128'; ctx.font = "700 26px 'Noto Sans SC', sans-serif";
+    ctx.textAlign = 'left';
+    ctx.fillText((g.hasStars ? '⭐ ' : '') + Math.floor(g.score / 6) + ' 米', 24, 42);
+  }
+
+  star(ctx, cx, cy, r, col) {
+    ctx.save(); ctx.translate(cx, cy); ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      const a2 = a + Math.PI / 5;
+      ctx.lineTo(Math.cos(a2) * r * 0.45, Math.sin(a2) * r * 0.45);
+    }
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+    ctx.restore();
+  }
+
+  drawDino(ctx, x, y, fire) {
+    ctx.save();
+    ctx.translate(x, y - 20);
+    // body
+    ctx.fillStyle = '#5AAE5F';
+    ctx.beginPath();
+    ctx.moveTo(2, 50); ctx.quadraticCurveTo(-10, 46, -6, 32);
+    ctx.quadraticCurveTo(-14, 24, -2, 20);
+    ctx.quadraticCurveTo(2, 0, 24, 2);
+    ctx.quadraticCurveTo(38, -14, 62, -4);
+    ctx.quadraticCurveTo(84, 0, 80, 26);
+    ctx.lineTo(84, 50); ctx.lineTo(72, 50); ctx.lineTo(68, 36);
+    ctx.quadraticCurveTo(50, 46, 30, 40); ctx.lineTo(26, 50);
+    ctx.closePath(); ctx.fill();
+    // belly
+    ctx.fillStyle = '#7FCB80';
+    ctx.beginPath(); ctx.ellipse(34, 34, 16, 12, 0, 0, 7); ctx.fill();
+    // eye
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(52, 10, 5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2A2016'; ctx.beginPath(); ctx.arc(53, 11, 2.4, 0, 7); ctx.fill();
+    // fire
+    if (fire) {
+      ctx.fillStyle = '#FF7A3C';
+      ctx.beginPath(); ctx.moveTo(80, 14); ctx.quadraticCurveTo(120, 8, 150, 18);
+      ctx.quadraticCurveTo(122, 22, 138, 30); ctx.quadraticCurveTo(108, 34, 80, 24); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#FFC24B';
+      ctx.beginPath(); ctx.moveTo(82, 15); ctx.quadraticCurveTo(112, 11, 132, 19);
+      ctx.quadraticCurveTo(114, 23, 122, 28); ctx.quadraticCurveTo(98, 30, 82, 22); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+</script>
+</body>
+</html>

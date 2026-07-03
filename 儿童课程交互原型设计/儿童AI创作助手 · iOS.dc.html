@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+</style>
+</helmet>
+<div style="min-height:100vh;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;padding:60px 40px;background:linear-gradient(150deg,#F7B24C 0%,#EE7A45 55%,#D85C2E 100%);font-family:-apple-system,'Noto Sans SC',system-ui,sans-serif">
+
+  <!-- landscape phone: rotate the device +90, counter-rotate the app -90 so it reads upright -->
+  <div style="width:956px;height:440px;position:relative;flex:none">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(90deg)">
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="{{ 440 }}" height="{{ 956 }}" hint-size="440px,956px">
+        <div style="width:440px;height:956px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#F4E4CE">
+          <div style="width:956px;height:440px;flex:none;transform:rotate(-90deg);display:flex;align-items:center;justify-content:center">
+            <dc-import name="儿童AI创作助手" embed="{{ true }}" style="width:956px;height:440px" hint-size="956px,440px"></dc-import>
+          </div>
+        </div>
+      </x-import>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;color:rgba(255,255,255,0.95);font-size:14px;font-weight:600;letter-spacing:.2px">
+    <div style="width:22px;height:22px;border-radius:7px;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-family:'ZCOOL KuaiLe';font-size:13px">灵</div>
+    小灵造造 · iOS 横屏版（把手机横过来玩）
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
