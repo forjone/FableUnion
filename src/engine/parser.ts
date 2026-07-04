@@ -3,12 +3,12 @@
 // 判定逻辑真实生效（词库匹配 / 推断 / 默认值 / 分歧），不是写死的演示流程。
 
 import {
-  DETAILS, MECHANICS, SCENES, STOP_WORDS, SUBJECTS, TONES,
-  mechanicMeta, sceneMeta,
+  DETAILS, MECHANICS, SCENES, SITE_KINDS, SITE_TRIGGERS, STOP_WORDS, SUBJECTS, TONES,
+  mechanicMeta, sceneMeta, siteKindMeta,
 } from './lexicon';
 import type {
   Confidence, DetailInfo, Divergence, DivergenceOption, MechanicId,
-  NamedThing, ParseResult, SlotName, SlotProfile, ToneId,
+  NamedThing, ParseResult, SiteKind, SlotName, SlotProfile, ToneId,
 } from './types';
 
 export function emptyProfile(): SlotProfile {
@@ -18,6 +18,8 @@ export function emptyProfile(): SlotProfile {
     companion: null,
     scene: null,
     mechanic: null,
+    mechanic_extra: null,
+    site_kind: null,
     tone: null,
     key_detail: null,
     difficulty: 'easy',
@@ -308,6 +310,23 @@ function toneDivergence(tones: { id: ToneId; raw: string }[]): Divergence {
 }
 
 /** 规则类分歧：难度无法用一张草图画出来 → 兜底图卡选择题（PRD 3.3 兜底路径） */
+function siteKindDivergence(reason: 'missing' | 'conflict', ids?: SiteKind[]): Divergence {
+  const picks: SiteKind[] = ids && ids.length >= 2 ? [ids[0], ids[1]] : ['gallery', 'story'];
+  return {
+    slot: 'mechanic', // 网站的核心功能语义上就是 PRD 的 mechanic 槽位
+    kind: 'visual',
+    reason,
+    prompt:
+      reason === 'conflict'
+        ? '两种网页我都画出来啦！你更喜欢哪一个？指给我看！'
+        : '我画了两种网页的样子！你更喜欢哪一个？指给我看！',
+    options: picks.map((id) => {
+      const meta = siteKindMeta(id);
+      return { label: meta.label, emoji: '🖼️', patch: { site_kind: id } };
+    }),
+  };
+}
+
 function difficultyDivergence(): Divergence {
   return {
     slot: 'difficulty',
@@ -333,6 +352,12 @@ export function parseUtterance(text: string, base?: SlotProfile | null): ParseRe
   const norm = normalize(text);
   const negs = negatedSegments(text);
   const translations = findTranslations(text);
+
+  // —— 作品类型识别（PRD 3.2 第 2 步：游戏 / 网站）——
+  const saysGame = /游戏|小游戏|闯关/.test(norm);
+  const saysSite = SITE_TRIGGERS.some((w) => mentioned(norm, negs, w) >= 0);
+  if (saysSite && !saysGame) profile.creation_type = 'website';
+  else if (saysGame) profile.creation_type = 'game';
 
   // —— 否定处理：孩子说“不要森林” → 清掉已有取值，重新推断 ——
   if (base) {
@@ -387,16 +412,54 @@ export function parseUtterance(text: string, base?: SlotProfile | null): ParseRe
     profile.confidence.scene = 'high';
   }
 
-  // —— 玩法（可能冲突） ——
+  // —— 玩法（可能冲突，也可能是“主玩法 + 捡星星”组合） ——
   const mechs = matchMechanics(norm, negs);
   let mechanicConflict: MechanicId[] | null = null;
-  if (mechs.length === 1) {
-    if (profile.mechanic !== mechs[0].id) changed.push('mechanic');
-    profile.mechanic = mechs[0].id;
-    profile.raw.mechanic = mechs[0].raw;
+  const nonCollect = mechs.filter((m) => m.id !== 'collect');
+  const hasCollect = mechs.some((m) => m.id === 'collect');
+  if (nonCollect.length >= 2) {
+    mechanicConflict = nonCollect.map((m) => m.id);
+  } else if (nonCollect.length === 1) {
+    if (profile.mechanic !== nonCollect[0].id) changed.push('mechanic');
+    profile.mechanic = nonCollect[0].id;
+    profile.raw.mechanic = nonCollect[0].raw;
     profile.confidence.mechanic = 'high';
-  } else if (mechs.length >= 2) {
-    mechanicConflict = mechs.map((m) => m.id);
+    if (hasCollect) {
+      profile.mechanic_extra = 'collect'; // 一边赛跑一边捡星星
+      changed.push('mechanic');
+    }
+  } else if (hasCollect) {
+    if (profile.mechanic && profile.mechanic !== 'collect') {
+      // 迭代：已有主玩法，再说“收集星星” → 叠加成组合玩法
+      profile.mechanic_extra = 'collect';
+      changed.push('mechanic');
+    } else {
+      if (profile.mechanic !== 'collect') changed.push('mechanic');
+      profile.mechanic = 'collect';
+      profile.raw.mechanic = mechs[0].raw;
+      profile.confidence.mechanic = 'high';
+    }
+  }
+
+  // —— 网站核心功能（占用 mechanic 槽位语义） ——
+  let siteKindConflict: SiteKind[] | null = null;
+  if (profile.creation_type === 'website') {
+    const kinds: { id: SiteKind; raw: string; index: number }[] = [];
+    for (const k of SITE_KINDS) {
+      for (const w of k.words) {
+        const i = mentioned(norm, negs, w);
+        if (i >= 0) { kinds.push({ id: k.id, raw: w, index: i }); break; }
+      }
+    }
+    kinds.sort((a, b) => a.index - b.index);
+    if (kinds.length === 1) {
+      if (profile.site_kind !== kinds[0].id) changed.push('mechanic');
+      profile.site_kind = kinds[0].id;
+      profile.raw.mechanic = kinds[0].raw;
+      profile.confidence.mechanic = 'high';
+    } else if (kinds.length >= 2) {
+      siteKindConflict = kinds.map((k) => k.id);
+    }
   }
 
   // —— 基调（可能冲突） ——
@@ -426,14 +489,19 @@ export function parseUtterance(text: string, base?: SlotProfile | null): ParseRe
   // —— 规则类提问（难度）：唯一的兜底选择题场景 ——
   const asksDifficulty = /难不难|几关|多少关|难度|要不要难/.test(text);
 
-  // —— 分歧判定：一次只抛出一个，优先级 主体 > 玩法 > 基调 > 规则 ——
+  // —— 分歧判定：一次只抛出一个，优先级 主体 > 玩法/功能 > 基调 > 规则 ——
   // 判定标准（PRD 3.2）：该槽位取值不同是否让草图明显不同。
+  const isSite = profile.creation_type === 'website';
   let divergence: Divergence | null = null;
   if (!profile.subject) {
     divergence = subjectDivergence();
-  } else if (mechanicConflict) {
+  } else if (isSite && siteKindConflict) {
+    divergence = siteKindDivergence('conflict', siteKindConflict);
+  } else if (isSite && !profile.site_kind) {
+    divergence = siteKindDivergence('missing');
+  } else if (!isSite && mechanicConflict) {
     divergence = mechanicDivergence(profile, 'conflict', mechanicConflict);
-  } else if (!profile.mechanic) {
+  } else if (!isSite && !profile.mechanic) {
     divergence = mechanicDivergence(profile, 'missing');
   } else if (toneConflict) {
     divergence = toneDivergence(tones);
@@ -455,6 +523,10 @@ export function parseUtterance(text: string, base?: SlotProfile | null): ParseRe
  */
 export function pendingDivergence(profile: SlotProfile): Divergence | null {
   if (!profile.subject) return subjectDivergence();
+  if (profile.creation_type === 'website') {
+    if (!profile.site_kind) return siteKindDivergence('missing');
+    return null;
+  }
   if (!profile.mechanic) return mechanicDivergence(profile, 'missing');
   return null;
 }
@@ -487,6 +559,10 @@ export function applyOption(profile: SlotProfile, divergence: Divergence, option
  * 给该槽位生成两个“不同于当前取值”的候选，双图并排。
  */
 export function buildFixDivergence(profile: SlotProfile, slot: SlotName): Divergence {
+  if (slot === 'mechanic' && profile.creation_type === 'website') {
+    const others = SITE_KINDS.map((k) => k.id).filter((k) => k !== profile.site_kind);
+    return siteKindDivergence('conflict', [others[0], others[1]]);
+  }
   if (slot === 'mechanic') {
     const all: MechanicId[] = ['race', 'collect', 'dodge', 'jump', 'pop'];
     const others = all.filter((m) => m !== profile.mechanic);
@@ -528,6 +604,12 @@ export function buildFixDivergence(profile: SlotProfile, slot: SlotName): Diverg
 /** 导出 PRD 第 6 节格式的槽位 JSON（存档与家长层用） */
 export function slotsToJSON(profile: SlotProfile): Record<string, unknown> {
   const conf: Record<string, Confidence> = { ...profile.confidence };
+  const mechanicLabel =
+    profile.creation_type === 'website'
+      ? profile.site_kind ? siteKindMeta(profile.site_kind).label : null
+      : profile.mechanic
+        ? mechanicMeta(profile.mechanic).label + (profile.mechanic_extra ? '＋收集星星' : '')
+        : null;
   return {
     creation_type: profile.creation_type,
     subject: profile.subject
@@ -536,7 +618,7 @@ export function slotsToJSON(profile: SlotProfile): Record<string, unknown> {
         : profile.subject.label
       : null,
     scene: profile.scene?.label ?? null,
-    mechanic: profile.mechanic ? mechanicMeta(profile.mechanic).label : null,
+    mechanic: mechanicLabel,
     tone: profile.tone,
     key_detail: profile.key_detail?.label ?? null,
     difficulty: profile.difficulty,

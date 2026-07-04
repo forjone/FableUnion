@@ -28,10 +28,11 @@ describe('槽位拆解（PRD 3.2）', () => {
     expect(r.divergence?.options).toHaveLength(2);
   });
 
-  it('两种玩法冲突 → 双草图二选一', () => {
+  it('赛跑+收集金币 → 组合玩法而非冲突（升级后的语义）', () => {
     const r = parseUtterance('恐龙又要赛跑又要收集金币');
-    expect(r.divergence?.slot).toBe('mechanic');
-    expect(r.divergence?.reason).toBe('conflict');
+    expect(r.profile.mechanic).toBe('race');
+    expect(r.profile.mechanic_extra).toBe('collect');
+    expect(r.divergence).toBeNull();
   });
 
   it('分歧解决后标记 resolved_by_clarify，且一次只处理一个分歧', () => {
@@ -75,6 +76,55 @@ describe('槽位拆解（PRD 3.2）', () => {
     expect(r.profile.subject?.id).toBe('dino');
     expect(r.profile.companion?.id).toBe('princess');
     expect(r.divergence).toBeNull();
+  });
+});
+
+describe('网站作品类型（PRD V2）', () => {
+  it('说“网站”→ 识别为 website，功能缺失触发双图分歧', () => {
+    const r = parseUtterance('我想做一个恐龙网站');
+    expect(r.profile.creation_type).toBe('website');
+    expect(r.divergence?.slot).toBe('mechanic');
+    expect(r.divergence?.kind).toBe('visual');
+  });
+
+  it('说“画廊”→ 直接填入 site_kind，不打扰孩子', () => {
+    const r = parseUtterance('小猫的画廊');
+    expect(r.profile.creation_type).toBe('website');
+    expect(r.profile.site_kind).toBe('gallery');
+    expect(r.divergence).toBeNull();
+  });
+
+  it('故事书 + 主角 → story 类型', () => {
+    const r = parseUtterance('给独角兽做一本故事书');
+    expect(r.profile.site_kind).toBe('story');
+    expect(r.profile.subject?.id).toBe('unicorn');
+  });
+
+  it('说“游戏”优先于网站词：恐龙赛跑游戏还是 game', () => {
+    const r = parseUtterance('恐龙赛跑游戏');
+    expect(r.profile.creation_type).toBe('game');
+  });
+});
+
+describe('玩法组合（原型第二轮：一边跑一边捡星星）', () => {
+  it('赛跑 + 收集 → 组合，不算冲突', () => {
+    const r = parseUtterance('恐龙赛跑还要收集星星');
+    expect(r.profile.mechanic).toBe('race');
+    expect(r.profile.mechanic_extra).toBe('collect');
+    expect(r.divergence).toBeNull();
+  });
+
+  it('迭代时补一句“收集星星”→ 叠加到已有主玩法', () => {
+    const base = parseUtterance('恐龙赛跑').profile;
+    const r = parseUtterance('跑的时候能捡星星', base);
+    expect(r.profile.mechanic).toBe('race');
+    expect(r.profile.mechanic_extra).toBe('collect');
+  });
+
+  it('两个非收集玩法仍是冲突 → 双图二选一', () => {
+    const r = parseUtterance('恐龙又要赛跑又要跳');
+    expect(r.divergence?.slot).toBe('mechanic');
+    expect(r.divergence?.reason).toBe('conflict');
   });
 });
 

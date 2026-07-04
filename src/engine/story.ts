@@ -1,9 +1,20 @@
 // 面向孩子的全部语言都从这里产出：讲故事口吻，绝不暴露“槽位/识别/分析”痕迹（设计北极星准则 3）。
 
-import { mechanicMeta } from './lexicon';
+import { mechanicMeta, siteKindMeta } from './lexicon';
 import type { SlotName, SlotProfile } from './types';
 
 const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+/** 玩法/功能的口语短语（游戏与网站统一出口） */
+function verbOf(profile: SlotProfile): string {
+  if (profile.creation_type === 'website') {
+    return profile.site_kind ? siteKindMeta(profile.site_kind).verb : '做一个小网页';
+  }
+  const main = profile.mechanic ? mechanicMeta(profile.mechanic).verb : '大冒险';
+  return profile.mechanic_extra === 'collect' && profile.mechanic !== 'collect'
+    ? `一边${main}一边捡星星`
+    : main;
+}
 
 /** 草图呈现时的讲故事旁白（PRD 3.4：不问“对不对”，像讲故事一样描述画面） */
 export function sketchNarration(profile: SlotProfile, translations: string[], changed: SlotName[]): string[] {
@@ -12,7 +23,7 @@ export function sketchNarration(profile: SlotProfile, translations: string[], ch
 
   const hero = profile.subject?.label ?? '小主角';
   const scene = profile.scene?.label ?? '奇妙世界';
-  const verb = profile.mechanic ? mechanicMeta(profile.mechanic).verb : '大冒险';
+  const verb = verbOf(profile);
   const detail = profile.key_detail ? `还${profile.key_detail.label}` : '';
 
   if (changed.length > 0 && changed.length <= 2) {
@@ -35,20 +46,22 @@ export function sketchNarration(profile: SlotProfile, translations: string[], ch
 
 /** 复述确认（PRD 3.5）：优先用孩子原话的关键词 */
 export function recapSentence(profile: SlotProfile): string {
+  const isSite = profile.creation_type === 'website';
   const subject = profile.raw.subject ?? profile.subject?.label ?? '小主角';
   const scene = profile.raw.scene ?? profile.scene?.label ?? '奇妙世界';
-  const verb = profile.raw.mechanic
-    ? `玩“${profile.raw.mechanic}”`
-    : profile.mechanic
-      ? mechanicMeta(profile.mechanic).verb
-      : '大冒险';
+  const verb = isSite
+    ? verbOf(profile)
+    : profile.raw.mechanic && !profile.mechanic_extra
+      ? `玩“${profile.raw.mechanic}”`
+      : verbOf(profile);
   const detail = profile.raw.key_detail
     ? `${profile.raw.key_detail}的`
     : profile.key_detail
       ? `${profile.key_detail.label}的`
       : '';
   const companion = profile.companion ? `，${profile.companion.label}也一起来` : '';
-  return `我们要做一个${detail}${subject}在${scene}里${verb}的游戏${companion}，对不对呀？`;
+  const noun = isSite ? '网页' : '游戏';
+  return `我们要做一个${detail}${subject}在${scene}里${verb}的${noun}${companion}，对不对呀？`;
 }
 
 /** 深度构建的故事化进度（PRD 3.6：不是通用加载条） */
@@ -57,18 +70,46 @@ export function buildSteps(profile: SlotProfile): string[] {
   const scene = profile.scene?.label ?? '奇妙世界';
   const steps: string[] = [];
   steps.push(`正在把${scene}铺得漂漂亮亮…`);
-  switch (profile.mechanic) {
-    case 'race': steps.push(`正在给${hero}穿上超级跑鞋…`); break;
-    case 'collect': steps.push(`正在把亮晶晶的星星挂到天上…`); break;
-    case 'dodge': steps.push(`正在教${hero}闪转腾挪的功夫…`); break;
-    case 'jump': steps.push(`正在给${hero}的腿装上弹簧…`); break;
-    case 'pop': steps.push(`正在吹出好多好多泡泡…`); break;
-    default: steps.push(`正在给${hero}热身…`);
+  if (profile.creation_type === 'website') {
+    switch (profile.site_kind) {
+      case 'gallery': steps.push('正在把画一幅幅挂上墙…'); break;
+      case 'story': steps.push(`正在把${hero}的故事写进小书里…`); break;
+      case 'intro': steps.push(`正在给${hero}拍一张帅气的大头照…`); break;
+      case 'invite': steps.push('正在吹气球、挂彩旗…'); break;
+      default: steps.push('正在搭网页的小房子…');
+    }
+  } else {
+    switch (profile.mechanic) {
+      case 'race': steps.push(`正在给${hero}穿上超级跑鞋…`); break;
+      case 'collect': steps.push(`正在把亮晶晶的星星挂到天上…`); break;
+      case 'dodge': steps.push(`正在教${hero}闪转腾挪的功夫…`); break;
+      case 'jump': steps.push(`正在给${hero}的腿装上弹簧…`); break;
+      case 'pop': steps.push(`正在吹出好多好多泡泡…`); break;
+      default: steps.push(`正在给${hero}热身…`);
+    }
+    if (profile.mechanic_extra === 'collect' && profile.mechanic !== 'collect') {
+      steps.push('顺便沿路撒下亮晶晶的星星…');
+    }
   }
   if (profile.key_detail) steps.push(`正在教${hero}${profile.key_detail.label}的绝招…`);
   if (profile.companion) steps.push(`${profile.companion.label}也赶来帮忙啦…`);
   steps.push('嘘——马上就好，再撒一把魔法星星…');
   return steps;
+}
+
+/** 网站故事书的四页迷你故事（website story 类型的正文素材） */
+export function miniStory(profile: SlotProfile): { sceneId: string; text: string }[] {
+  const hero = profile.subject?.label ?? '小主角';
+  const home = profile.scene?.id ?? 'meadow';
+  const homeName = profile.scene?.label ?? '大草地';
+  const skill = profile.key_detail?.label ?? '笑得特别甜';
+  const friend = profile.companion?.label ?? '好朋友';
+  return [
+    { sceneId: home, text: `在${homeName}上，住着一只叫${hero}的小家伙，它${skill}。` },
+    { sceneId: 'forest', text: `有一天，${hero}出门探险，一路蹦蹦跳跳，遇见了${friend}。` },
+    { sceneId: 'sky', text: `它们一起爬上云朵，把星星一颗一颗装进小口袋。` },
+    { sceneId: home, text: `天黑啦，${hero}回到${homeName}，做了一个亮晶晶的梦。晚安！` },
+  ];
 }
 
 /** 完成时的庆祝语 + 迭代邀请（PRD 3.7） */

@@ -2,7 +2,7 @@
 // 素材先从矢量插画栅格化，加载完成后才允许开始。
 
 import { useEffect, useRef, useState } from 'react';
-import { IconArrow, IconHome, IconPlay, IconReplay, IconTap } from '../art/icons';
+import { IconArrow, IconHome, IconMic, IconPlay, IconReplay, IconSparkle, IconTap } from '../art/icons';
 import { GameRuntime, effectButtonLabel, loadSprites, type SpriteSet } from '../engine/game';
 import type { GameSpec } from '../engine/types';
 
@@ -10,6 +10,7 @@ export function PlayStage(props: {
   spec: GameSpec;
   onWin: () => void;
   onIterate: () => void;
+  onShare: () => void;
   onReplay: () => void;
   onHome: () => void;
 }) {
@@ -77,7 +78,7 @@ export function PlayStage(props: {
         )}
         {needsAction && (
           <button className="btn-action blue" type="button" {...hold('action')}>
-            <IconTap size={26} />{actionLabel}
+            <IconTap size={26} /><span className="t-label">{actionLabel}</span>
           </button>
         )}
         {spec.effect && (
@@ -91,11 +92,16 @@ export function PlayStage(props: {
           type="button"
           onClick={() => { setStarted(false); setRound((r) => r + 1); props.onReplay(); }}
         >
-          <IconReplay size={22} />再玩一次
+          <IconReplay size={22} color="#5B4A3E" /><span className="t-label">再玩一次</span>
         </button>
-        <button className="btn-outline" type="button" onClick={props.onIterate}>还想加点什么</button>
+        <button className="btn-outline" type="button" onClick={props.onIterate}>
+          <IconMic size={22} /><span className="t-label">还想加点什么</span>
+        </button>
+        <button className="btn-action ghost" type="button" onClick={props.onShare}>
+          <IconSparkle size={22} /><span className="t-label">分享</span>
+        </button>
         <button className="btn-action ghost" type="button" onClick={props.onHome}>
-          <IconHome size={22} />收好
+          <IconHome size={22} /><span className="t-label">收好</span>
         </button>
       </div>
       <p className="soft-hint">{keyHint}</p>

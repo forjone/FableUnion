@@ -1,4 +1,4 @@
-import type { EffectId, MechanicId, ToneId } from './types';
+import type { EffectId, MechanicId, SiteKind, ToneId } from './types';
 
 // —— 词库：把孩子的自然语言映射到内部槽位 ——
 // 覆盖不是目的，可靠兜底才是：没匹配到的词也有捕获与默认策略（见 parser）。
@@ -120,6 +120,31 @@ export const DETAILS: DetailEntry[] = [
   { effect: 'speed', label: '超级快', emoji: '⚡', words: ['超级快', '飞快', '特别快', '闪电一样'] },
   { effect: 'sparkle', label: '有魔法', emoji: '✨', words: ['魔法', '会变身', '星星光'] },
 ];
+
+// —— 网站类作品（PRD V2）：类型触发词 + 核心功能词 ——
+
+/** 命中这些词 → creation_type = website */
+export const SITE_TRIGGERS = ['网站', '网页', '主页', '画廊', '相册', '画展', '故事书', '绘本', '故事', '邀请函', '请柬', '介绍', '名片'];
+
+export interface SiteKindEntry {
+  id: SiteKind;
+  label: string;
+  /** 复述确认时的功能短语 */
+  verb: string;
+  titleNoun: string;
+  words: string[];
+}
+
+export const SITE_KINDS: SiteKindEntry[] = [
+  { id: 'gallery', label: '画廊', verb: '展示漂亮的画', titleNoun: '奇幻画廊', words: ['画廊', '相册', '画展', '照片', '展示'] },
+  { id: 'story', label: '故事书', verb: '讲一个小故事', titleNoun: '小故事书', words: ['故事', '绘本', '故事书', '讲故事'] },
+  { id: 'intro', label: '介绍页', verb: '介绍它自己', titleNoun: '小主页', words: ['介绍', '名片', '主页', '自我介绍'] },
+  { id: 'invite', label: '邀请函', verb: '邀请朋友来玩', titleNoun: '派对邀请函', words: ['邀请', '请柬', '派对', '生日会'] },
+];
+
+export function siteKindMeta(id: SiteKind): SiteKindEntry {
+  return SITE_KINDS.find((k) => k.id === id)!;
+}
 
 /** 捕获自定义主角时要排除的形容词/废词 */
 export const STOP_WORDS = [

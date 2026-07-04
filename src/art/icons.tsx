@@ -64,10 +64,10 @@ export const IconSound = ({ size = 28, off = false }: { size?: number; off?: boo
   </Svg>
 );
 
-export const IconReplay = ({ size = 28 }: { size?: number }) => (
+export const IconReplay = ({ size = 28, color = '#fff' }: { size?: number; color?: string }) => (
   <Svg size={size}>
-    <path d="M 38 24 A 14 14 0 1 1 30 11" stroke="#fff" strokeWidth="5" fill="none" />
-    <path d="M 28 4 L 38 11 L 28 18 Z" fill="#fff" />
+    <path d="M 38 24 A 14 14 0 1 1 30 11" stroke={color} strokeWidth="5" fill="none" />
+    <path d="M 28 4 L 38 11 L 28 18 Z" fill={color} />
   </Svg>
 );
 

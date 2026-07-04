@@ -2,7 +2,7 @@
 // V3 的家长层可直接读取这份档案（含 PRD 第 6 节格式的槽位 JSON）。
 
 import { slotsToJSON } from '../engine/parser';
-import type { DialogueEntry, GameSpec, SlotProfile, WorkRecord } from '../engine/types';
+import type { DialogueEntry, SlotProfile, WorkRecord, WorkSpec } from '../engine/types';
 
 const KEY = 'fable.works';
 
@@ -25,7 +25,7 @@ export function saveWork(
   existingId: string | null,
   title: string,
   profile: SlotProfile,
-  spec: GameSpec,
+  spec: WorkSpec,
   dialogue: DialogueEntry[],
   coverUrl?: string | null,
 ): WorkRecord {

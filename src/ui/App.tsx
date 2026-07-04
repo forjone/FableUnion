@@ -9,21 +9,27 @@ import {
   DEFAULT_IMGGEN, generateImage, imagePrompt, imgGenReady, loadImgGenConfig,
   saveImgGenConfig, type ImgGenConfig, type MagicCover,
 } from '../app/imagegen';
+import { llmReady, normalizeUtterance } from '../app/llm';
+import { record } from '../app/metrics';
+import { checkText, logSafety } from '../app/safety';
 import { loadSpeechPref, setSpeechEnabled, speak, speechEnabled, stopSpeaking } from '../app/speech';
-import { buildSpec, controlHint } from '../engine/game';
-import { sketchSVG, workTitle } from '../engine/sketch';
+import { buildSiteSpec, buildSpec, controlHint } from '../engine/game';
 import {
   applyOption, parseUtterance, pendingDivergence, buildFixDivergence, slotsToJSON,
 } from '../engine/parser';
+import { sketchSVG, workTitle } from '../engine/sketch';
 import {
   celebrateLine, iterateInvite, listenPrompt, nudgeLine, recapSentence, sketchNarration,
 } from '../engine/story';
 import type {
-  DialogueEntry, Divergence, DivergenceOption, GameSpec, SlotName, SlotProfile, WorkRecord,
+  DialogueEntry, Divergence, DivergenceOption, GameSpec, SiteSpec, SlotName, SlotProfile,
+  WorkRecord, WorkSpec,
 } from '../engine/types';
 import { IconGear, IconHome, IconSound, JourneyDots, Mascot } from '../art/icons';
 import { Bubble } from './bits';
 import { PlayStage } from './GameCanvas';
+import { ParentPortal, type AgeTier } from './ParentPortal';
+import { SiteStage } from './SiteStage';
 import {
   BuildStage, ConfirmStage, DivergeStage, FixWhatStage, ListenStage, SketchStage, WelcomeStage,
 } from './stages';
@@ -53,21 +59,46 @@ function journeyIndex(stage: Stage): number {
   }
 }
 
+// —— 作品分享：spec+profile 编入 URL hash，打开即玩（部署后即为可发送的链接） ——
+
+interface SharePayload { spec: WorkSpec; profile: SlotProfile }
+
+function encodeShare(payload: SharePayload): string {
+  return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+}
+
+function decodeShare(): SharePayload | null {
+  try {
+    const m = window.location.hash.match(/#w=([A-Za-z0-9+/=]+)/);
+    if (!m) return null;
+    const json = decodeURIComponent(escape(atob(m[1])));
+    const p = JSON.parse(json) as SharePayload;
+    return p.spec && p.profile ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadTier(): AgeTier {
+  try { return localStorage.getItem('fable.tier') === 'young' ? 'young' : 'old'; } catch { return 'old'; }
+}
+
 export default function App() {
   const [stage, setStage] = useState<Stage>({ name: 'home' });
   const [profile, setProfile] = useState<SlotProfile | null>(null);
   const [translations, setTranslations] = useState<string[]>([]);
   const [changed, setChanged] = useState<SlotName[]>([]);
   const [dialogue, setDialogue] = useState<DialogueEntry[]>([]);
-  const [spec, setSpec] = useState<GameSpec | null>(null);
+  const [spec, setSpec] = useState<WorkSpec | null>(null);
   const [workId, setWorkId] = useState<string | null>(null);
   const [iterating, setIterating] = useState(false);
   const [caption, setCaption] = useState('');
   const [soundOn, setSoundOn] = useState(true);
-  const [devOpen, setDevOpen] = useState(false);
+  const [portalOpen, setPortalOpen] = useState(false);
   const [works, setWorks] = useState<WorkRecord[]>([]);
   const [imgCfg, setImgCfg] = useState<ImgGenConfig>(DEFAULT_IMGGEN);
   const [magic, setMagic] = useState<MagicCover>({ status: 'idle', url: null });
+  const [tier, setTier] = useState<AgeTier>('old');
   const magicSeq = useRef(0);
 
   // —— 1194×834 卡片自适应缩放（对照原型的 fit 逻辑） ——
@@ -87,36 +118,29 @@ export default function App() {
     return () => { ro.disconnect(); window.removeEventListener('resize', fit); };
   }, []);
 
-  useEffect(() => {
-    loadSpeechPref();
-    setSoundOn(speechEnabled());
-    setWorks(loadWorks());
-    setImgCfg(loadImgGenConfig());
-  }, []);
-
-  /** 进入确认页时后台生成 AI 魔法图（PRD 3.5 终稿视觉）：不阻塞确认，好了才淡入 */
-  const startMagic = useCallback((p: SlotProfile) => {
-    magicSeq.current += 1;
-    const seq = magicSeq.current;
-    if (!imgGenReady(imgCfg)) { setMagic({ status: 'idle', url: null }); return; }
-    setMagic({ status: 'loading', url: null });
-    const finalSvg = sketchSVG(p, { quality: 'final', uid: 'magic', title: workTitle(p) });
-    void generateImage(imagePrompt(p), imgCfg, finalSvg).then((url) => {
-      if (magicSeq.current !== seq) return; // 槽位已变化，丢弃过期结果
-      setMagic(url ? { status: 'ready', url } : { status: 'failed', url: null });
-    });
-  }, [imgCfg]);
-
-  const cancelMagic = useCallback(() => {
-    magicSeq.current += 1;
-    setMagic({ status: 'idle', url: null });
-  }, []);
-
   /** 小灵说话：TTS + 字幕 + 记入对话档案 */
   const say = useCallback((text: string) => {
     setCaption(text);
     speak(text);
     setDialogue((d) => [...d, { who: 'ai', text, at: Date.now() }]);
+  }, []);
+
+  useEffect(() => {
+    loadSpeechPref();
+    setSoundOn(speechEnabled());
+    setWorks(loadWorks());
+    setImgCfg(loadImgGenConfig());
+    setTier(loadTier());
+    // 分享链接直达游玩（客人模式）
+    const shared = decodeShare();
+    if (shared) {
+      setProfile(shared.profile);
+      setSpec(shared.spec);
+      setIterating(true);
+      setStage({ name: 'play', won: false });
+      say(`${shared.spec.title}来啦！这是好朋友分享给你的作品！`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const hear = useCallback((text: string) => {
@@ -133,7 +157,32 @@ export default function App() {
     setIterating(false);
   }, []);
 
-  // —— ① → ②：听完一句话，真实拆解，然后要么进分歧、要么直接画草图 ——
+  /** 进入确认页时后台生成 AI 魔法图（PRD 3.5 终稿视觉）：不阻塞确认，好了才淡入 */
+  const startMagic = useCallback((p: SlotProfile) => {
+    magicSeq.current += 1;
+    const seq = magicSeq.current;
+    if (!imgGenReady(imgCfg)) { setMagic({ status: 'idle', url: null }); return; }
+    setMagic({ status: 'loading', url: null });
+    const finalSvg = sketchSVG(p, { quality: 'final', uid: 'magic', title: workTitle(p) });
+    void generateImage(imagePrompt(p), imgCfg, finalSvg).then((url) => {
+      if (magicSeq.current !== seq) return; // 槽位已变化，丢弃过期结果
+      record(url ? 'magic_ready' : 'magic_failed');
+      setMagic(url ? { status: 'ready', url } : { status: 'failed', url: null });
+    });
+  }, [imgCfg]);
+
+  const cancelMagic = useCallback(() => {
+    magicSeq.current += 1;
+    setMagic({ status: 'idle', url: null });
+  }, []);
+
+  const showDivergence = useCallback((div: Divergence, prefix?: string[]) => {
+    record(div.kind === 'visual' ? 'divergence_visual' : 'divergence_cards');
+    setStage({ name: 'diverge', div });
+    say([...(prefix ?? []), div.prompt].join('，'));
+  }, [say]);
+
+  // —— ① → ②：听完一句话（安全过滤 → LLM 归一 → 真实拆解） ——
   const goSketch = useCallback(
     (p: SlotProfile, tr: string[], ch: SlotName[]) => {
       setStage({ name: 'sketch' });
@@ -146,18 +195,29 @@ export default function App() {
     (text: string) => {
       if (!text.trim()) { say(nudgeLine()); return; }
       hear(text);
-      const res = parseUtterance(text, iterating ? profile : null);
-      setProfile(res.profile);
-      setTranslations(res.translations);
-      setChanged(res.changed);
-      if (res.divergence) {
-        setStage({ name: 'diverge', div: res.divergence });
-        say([...res.translations, res.divergence.prompt].join('，'));
-      } else {
-        goSketch(res.profile, res.translations, res.changed);
+      // 内容安全过滤（PRD 第 5 节）：温柔引导换主意，并记入安全日志
+      const chk = checkText(text);
+      if (!chk.ok) {
+        logSafety(chk.label, text);
+        record('safety_block');
+        say(chk.line);
+        return;
       }
+      void (async () => {
+        let input = text;
+        if (llmReady(imgCfg)) {
+          const normalized = await normalizeUtterance(text, imgCfg);
+          if (normalized) input = normalized;
+        }
+        const res = parseUtterance(input, iterating ? profile : null);
+        setProfile(res.profile);
+        setTranslations(res.translations);
+        setChanged(res.changed);
+        if (res.divergence) showDivergence(res.divergence, res.translations);
+        else goSketch(res.profile, res.translations, res.changed);
+      })();
     },
-    [goSketch, hear, iterating, profile, say],
+    [goSketch, hear, imgCfg, iterating, profile, say, showDivergence],
   );
 
   // —— 分歧：指一个 → 立即回到草图；若还有下一个关键缺失，继续处理下一个 ——
@@ -168,19 +228,19 @@ export default function App() {
       setProfile(next);
       const pend = pendingDivergence(next);
       if (pend) {
-        setStage({ name: 'diverge', div: pend });
-        say(pend.prompt);
+        showDivergence(pend);
       } else {
         goSketch(next, translations, changed);
         setTranslations([]);
       }
     },
-    [changed, goSketch, profile, say, stage, translations],
+    [changed, goSketch, profile, showDivergence, stage, translations],
   );
 
   // —— ② → ③：沉默/点头即通过，进入唯一的显式确认（同时后台开始 AI 魔法图） ——
-  const sketchPass = useCallback(() => {
+  const sketchPass = useCallback((source: 'silent' | 'button') => {
     if (!profile) return;
+    record(source === 'silent' ? 'sketch_silent_pass' : 'sketch_button_pass');
     setStage({ name: 'confirm' });
     startMagic(profile);
     say(recapSentence(profile));
@@ -188,6 +248,7 @@ export default function App() {
 
   const sketchInterrupt = useCallback(() => {
     stopSpeaking();
+    record('sketch_interrupt');
     setStage({ name: 'fixwhat' });
     say('哦哦，哪里不对呀？指给我看！');
   }, [say]);
@@ -195,11 +256,9 @@ export default function App() {
   const fixPick = useCallback(
     (slot: SlotName) => {
       if (!profile) return;
-      const div = buildFixDivergence(profile, slot);
-      setStage({ name: 'diverge', div });
-      say(div.prompt);
+      showDivergence(buildFixDivergence(profile, slot));
     },
-    [profile, say],
+    [profile, showDivergence],
   );
 
   const fixResay = useCallback(() => {
@@ -211,11 +270,13 @@ export default function App() {
   // —— ③ → ④：孩子说“对！”，才开始耗费构建资源 ——
   const confirmYes = useCallback(() => {
     if (!profile) return;
+    record('confirm_yes');
     setStage({ name: 'build' });
     say('好嘞！看我的小魔法——');
   }, [profile, say]);
 
   const confirmNo = useCallback(() => {
+    record('confirm_no');
     cancelMagic(); // 槽位要变了，丢弃生成中的魔法图
     setStage({ name: 'fixwhat' });
     say('没关系！哪里要改？指给我看！');
@@ -224,8 +285,9 @@ export default function App() {
   // —— ④ → ⑤：构建完成即存档（作品档案 + AI 封面），开始玩 ——
   const buildDone = useCallback(() => {
     if (!profile) return;
-    const s = buildSpec(profile);
+    const s: WorkSpec = profile.creation_type === 'website' ? buildSiteSpec(profile) : buildSpec(profile);
     setSpec(s);
+    record('build_done');
     setDialogue((d) => {
       const rec = saveWork(workId, s.title, profile, s, d, magic.url);
       setWorkId(rec.id);
@@ -233,7 +295,11 @@ export default function App() {
       return d;
     });
     setStage({ name: 'play', won: false });
-    say(`${celebrateLine(profile)}${controlHint(s).text}`);
+    if (s.type === 'website') {
+      say(`${celebrateLine(profile)}这是一个真的网页哦，可以保存下来送给别人！`);
+    } else {
+      say(`${celebrateLine(profile)}${controlHint(s as GameSpec).text}`);
+    }
   }, [profile, say, workId, magic.url]);
 
   // 魔法图在构建/游玩期间才回来 → 补写进档案封面
@@ -252,10 +318,22 @@ export default function App() {
   // —— ⑤ → ①：继续迭代，带着已有档案回到倾听 ——
   const iterate = useCallback(() => {
     stopSpeaking();
+    record('iterate');
     setIterating(true);
     setStage({ name: 'listen' });
     say(listenPrompt(true));
   }, [say]);
+
+  const shareWork = useCallback(() => {
+    if (!spec || !profile) return;
+    const url = `${window.location.origin}${window.location.pathname}#w=${encodeShare({ spec, profile })}`;
+    const done = () => say('链接复制好啦！发给好朋友，打开就能玩！');
+    try {
+      void navigator.clipboard.writeText(url).then(done, done);
+    } catch {
+      done();
+    }
+  }, [profile, say, spec]);
 
   const goHome = useCallback(() => {
     stopSpeaking();
@@ -263,11 +341,13 @@ export default function App() {
     resetSession();
     setWorks(loadWorks());
     setCaption('');
+    window.location.hash = '';
     setStage({ name: 'home' });
   }, [cancelMagic, resetSession]);
 
   const startFresh = useCallback(() => {
     resetSession();
+    record('session_start');
     setStage({ name: 'listen' });
     say(listenPrompt(false));
   }, [resetSession, say]);
@@ -279,7 +359,8 @@ export default function App() {
     setDialogue(w.dialogue ?? []);
     setIterating(true);
     setStage({ name: 'play', won: false });
-    say(`${w.title}来啦！${controlHint(w.spec).text}`);
+    if (w.spec.type === 'website') say(`${w.title}来啦！`);
+    else say(`${w.title}来啦！${controlHint(w.spec as GameSpec).text}`);
   }, [say]);
 
   const iterateWork = useCallback((w: WorkRecord) => {
@@ -298,8 +379,13 @@ export default function App() {
     setSpeechEnabled(next);
   };
 
+  const setTierPersist = useCallback((t: AgeTier) => {
+    setTier(t);
+    try { localStorage.setItem('fable.tier', t); } catch { /* ignore */ }
+  }, []);
+
   const devInfo = useMemo(() => {
-    if (!devOpen) return '';
+    if (!portalOpen) return '';
     return JSON.stringify(
       {
         stage: stage.name,
@@ -310,16 +396,16 @@ export default function App() {
       null,
       2,
     );
-  }, [devOpen, dialogue, profile, stage]);
+  }, [portalOpen, dialogue, profile, stage]);
 
   return (
     <div className="frame-host" ref={hostRef}>
-      <div className="frame-card" style={{ transform: `scale(${scale})` }}>
+      <div className={`frame-card${tier === 'young' ? ' tier-young' : ''}`} style={{ transform: `scale(${scale})` }}>
         <header className="topbar">
           {stage.name !== 'home' ? (
             <button className="home-pill" type="button" onClick={goHome}>
               <IconHome size={18} />
-              从头开始
+              <span className="t-label">从头开始</span>
             </button>
           ) : <span className="home-pill-ghost" />}
           <JourneyDots current={journeyIndex(stage)} />
@@ -357,99 +443,36 @@ export default function App() {
           {stage.name === 'build' && profile && (
             <BuildStage profile={profile} onDone={buildDone} />
           )}
-          {stage.name === 'play' && spec && (
+          {stage.name === 'play' && spec && spec.type === 'website' && profile && (
+            <SiteStage spec={spec as SiteSpec} profile={profile} onIterate={iterate} onHome={goHome} />
+          )}
+          {stage.name === 'play' && spec && spec.type !== 'website' && (
             <PlayStage
-              spec={spec}
+              spec={spec as GameSpec}
               onWin={gameWon}
               onIterate={iterate}
-              onReplay={() => setStage({ name: 'play', won: false })}
+              onShare={shareWork}
+              onReplay={() => { record('replay'); setStage({ name: 'play', won: false }); }}
               onHome={goHome}
             />
           )}
         </main>
 
-        <button className="dev-toggle" type="button" onClick={() => setDevOpen((o) => !o)} title="设置与家长（孩子界面不可见）">
+        <button className="dev-toggle" type="button" onClick={() => setPortalOpen(true)} title="家长小屋（孩子界面不可见）">
           <IconGear size={18} />
         </button>
-        {devOpen && (
-          <SettingsPanel
+        {portalOpen && (
+          <ParentPortal
             cfg={imgCfg}
-            magic={magic}
+            tier={tier}
+            works={works}
             devInfo={devInfo}
-            onSave={(next) => { setImgCfg(next); saveImgGenConfig(next); }}
+            onSaveCfg={(next) => { setImgCfg(next); saveImgGenConfig(next); }}
+            onTier={setTierPersist}
+            onClose={() => setPortalOpen(false)}
           />
         )}
       </div>
-    </div>
-  );
-}
-
-/** 设置与家长面板（PRD 第 5 节的雏形）：AI 魔法图配置 + 生成记录查看，孩子界面永不出现 */
-function SettingsPanel(props: {
-  cfg: ImgGenConfig;
-  magic: MagicCover;
-  devInfo: string;
-  onSave: (cfg: ImgGenConfig) => void;
-}) {
-  const [draft, setDraft] = useState<ImgGenConfig>(props.cfg);
-  const [saved, setSaved] = useState(false);
-  const set = (patch: Partial<ImgGenConfig>) => { setDraft((d) => ({ ...d, ...patch })); setSaved(false); };
-  const statusText = !draft.enabled
-    ? '已关闭：终稿使用小灵手绘图'
-    : imgGenReady(draft)
-      ? draft.baseUrl === 'mock'
-        ? '演示模式：不发请求，用手绘图模拟 AI 上色'
-        : '已配置：确认页会后台生成 AI 魔法图'
-      : '未填 API Key：终稿使用小灵手绘图';
-  return (
-    <div className="dev-panel settings-panel">
-      <div className="settings-title">AI 魔法图（图片生成）</div>
-      <label className="settings-row">
-        <input
-          type="checkbox"
-          checked={draft.enabled}
-          onChange={(e) => set({ enabled: e.target.checked })}
-        />
-        启用（在确认页后台生成终稿插画，失败自动回退手绘图）
-      </label>
-      <label className="settings-row">
-        <span>API 地址</span>
-        <input
-          type="text"
-          value={draft.baseUrl}
-          placeholder="/imggen/v1（同源代理）或 mock（演示）"
-          onChange={(e) => set({ baseUrl: e.target.value.trim() })}
-        />
-      </label>
-      <label className="settings-row">
-        <span>API Key</span>
-        <input
-          type="password"
-          value={draft.apiKey}
-          placeholder="sk-…"
-          onChange={(e) => set({ apiKey: e.target.value })}
-        />
-      </label>
-      <label className="settings-row">
-        <span>模型</span>
-        <input
-          type="text"
-          value={draft.model}
-          onChange={(e) => set({ model: e.target.value.trim() })}
-        />
-      </label>
-      <div className="settings-actions">
-        <button
-          className="settings-save"
-          type="button"
-          onClick={() => { props.onSave(draft); setSaved(true); }}
-        >
-          {saved ? '已保存 ✓' : '保存'}
-        </button>
-        <span className="settings-status">{statusText}{props.magic.status === 'loading' ? '（生成中…）' : ''}</span>
-      </div>
-      <div className="settings-title">生成记录（内部骨架）</div>
-      <pre className="settings-json">{props.devInfo}</pre>
     </div>
   );
 }

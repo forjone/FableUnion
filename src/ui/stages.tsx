@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MagicCover } from '../app/imagegen';
 import { sttSupported, startStt } from '../app/speech';
 import { characterSVG } from '../art/characters';
-import { IconGamepad, IconMic, IconPencil, Mascot } from '../art/icons';
+import { IconCheck, IconGamepad, IconHand, IconMic, IconPencil, IconReplay, Mascot } from '../art/icons';
 import {
   difficultyBadgeSVG, mechanicBadgeSVG, optionSketch, sceneBadgeSVG, sketchSVG,
   toneBadgeSVG, workTitle,
@@ -135,13 +135,16 @@ export function ListenStage(props: { iterating: boolean; onSubmit: (text: string
         />
       </div>
       {shown.trim() && (
-        <button className="btn-go" type="button" onClick={submit}>对，就是这个！</button>
+        <button className="btn-go" type="button" onClick={submit}>
+          <IconCheck size={26} />
+          <span className="t-label">对，就是这个！</span>
+        </button>
       )}
       <div className="chips">
         {chips.map((c) => (
           <button key={c.text} className="chip" type="button" onClick={() => setText(c.text)}>
             <span className="chip-art" dangerouslySetInnerHTML={{ __html: characterSVG(c.charId, 30) }} />
-            <span className="chip-text">{c.text}</span>
+            <span className="chip-text t-label">{c.text}</span>
           </button>
         ))}
       </div>
@@ -155,7 +158,8 @@ const PASS_AFTER_MS = 8000;
 
 export function SketchStage(props: {
   profile: SlotProfile;
-  onPass: () => void;
+  /** silent = 沉默计时通过（隐式确认），button = 主动点“好耶” */
+  onPass: (source: 'silent' | 'button') => void;
   onInterrupt: () => void;
 }) {
   const [left, setLeft] = useState(PASS_AFTER_MS);
@@ -166,7 +170,7 @@ export function SketchStage(props: {
     const iv = setInterval(() => {
       const remain = PASS_AFTER_MS - (Date.now() - started);
       setLeft(remain);
-      if (remain <= 0) { clearInterval(iv); onPass(); }
+      if (remain <= 0) { clearInterval(iv); onPass('silent'); }
     }, 100);
     return () => clearInterval(iv);
   }, [onPass]);
@@ -179,8 +183,14 @@ export function SketchStage(props: {
         <div className="quiet-timer-fill" style={{ width: `${(left / PASS_AFTER_MS) * 100}%` }} />
       </div>
       <div className="row">
-        <button className="btn-go" type="button" onClick={props.onPass}>好耶，就是这样！</button>
-        <button className="btn-quiet" type="button" onClick={props.onInterrupt}>不是这样的</button>
+        <button className="btn-go" type="button" onClick={() => props.onPass('button')}>
+          <IconCheck size={26} />
+          <span className="t-label">好耶，就是这样！</span>
+        </button>
+        <button className="btn-quiet" type="button" onClick={props.onInterrupt}>
+          <IconHand size={24} />
+          <span className="t-label">不是这样的</span>
+        </button>
       </div>
     </div>
   );
@@ -207,12 +217,12 @@ export function FixWhatStage(props: {
             {c.slot === 'mechanic'
               ? <span className="pick-art pick-art-icon"><IconGamepad size={62} /></span>
               : <span className="pick-art" dangerouslySetInnerHTML={{ __html: c.art }} />}
-            <span className="pick-label">{c.label}</span>
+            <span className="pick-label t-label">{c.label}</span>
           </button>
         ))}
         <button className="pick-card slide-up" type="button" onClick={props.onResay}>
           <span className="pick-art pick-art-icon"><IconMic size={62} /></span>
-          <span className="pick-label">我再说一遍</span>
+          <span className="pick-label t-label">我再说一遍</span>
         </button>
       </div>
       <p className="soft-hint">点一个你想改的～不用着急</p>
@@ -243,7 +253,7 @@ export function DivergeStage(props: {
               <SketchView svg={optionSketch(profile, opt.patch, `opt${i}`)} />
               <span className="option-label-bar">
                 <span className="option-badge-art" dangerouslySetInnerHTML={{ __html: optionBadge(divergence, opt) }} />
-                {opt.label}
+                <span className="t-label">{opt.label}</span>
               </span>
             </button>
           ))}
@@ -264,7 +274,7 @@ export function DivergeStage(props: {
             onClick={() => props.onPick(opt)}
           >
             <span className="pick-art" dangerouslySetInnerHTML={{ __html: optionBadge(divergence, opt) }} />
-            <span className="pick-label">{opt.label}</span>
+            <span className="pick-label t-label">{opt.label}</span>
           </button>
         ))}
       </div>
@@ -311,12 +321,15 @@ export function ConfirmStage(props: {
       )}
       <p className="confirm-sub">对的话我就开始造啦，要用点小魔法哦～</p>
       <div className="row">
-        <button className="btn-quiet" type="button" onClick={props.onNo}>再改改</button>
+        <button className="btn-quiet" type="button" onClick={props.onNo}>
+          <IconReplay size={22} color="#8A7A6E" />
+          <span className="t-label">再改改</span>
+        </button>
         <button className="btn-primary" type="button" onClick={props.onYes}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M4 12.5l5 5 11-12" />
           </svg>
-          对！开始造
+          <span className="t-label">对！开始造</span>
         </button>
       </div>
     </div>

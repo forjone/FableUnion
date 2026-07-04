@@ -3,7 +3,7 @@
 // 好了就淡入替换手绘终稿并成为作品封面；失败/未配置则静默用手绘图。
 // 接口为 OpenAI 兼容的 /v1/images/generations（默认经同源 /imggen 代理转发）。
 
-import { TONE_LABEL, mechanicMeta } from '../engine/lexicon';
+import { TONE_LABEL, mechanicMeta, siteKindMeta } from '../engine/lexicon';
 import type { SlotProfile } from '../engine/types';
 
 /** AI 魔法图（终稿上色）的生成状态 */
@@ -18,6 +18,9 @@ export interface ImgGenConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** LLM 语义归一（PRD 需求拆解的 API 适配层），共用 baseUrl 与 apiKey */
+  llmEnabled: boolean;
+  llmModel: string;
 }
 
 const KEY = 'fable.imggen';
@@ -27,6 +30,8 @@ export const DEFAULT_IMGGEN: ImgGenConfig = {
   baseUrl: '/imggen/v1',
   apiKey: '',
   model: 'gpt-image-2',
+  llmEnabled: false,
+  llmModel: 'gpt-4o-mini',
 };
 
 export function loadImgGenConfig(): ImgGenConfig {
@@ -52,7 +57,10 @@ export function imagePrompt(profile: SlotProfile): string {
   const subject = profile.subject?.label ?? '小主角';
   const companion = profile.companion ? `和${profile.companion.label}一起` : '';
   const scene = profile.scene?.label ?? '大草地';
-  const verb = profile.mechanic ? mechanicMeta(profile.mechanic).verb : '开心玩耍';
+  const verb =
+    profile.creation_type === 'website'
+      ? profile.site_kind ? siteKindMeta(profile.site_kind).verb : '开心玩耍'
+      : profile.mechanic ? mechanicMeta(profile.mechanic).verb : '开心玩耍';
   const detail = profile.key_detail ? `，${profile.key_detail.label}` : '';
   const tone = TONE_LABEL[profile.tone ?? 'lively'];
   return (

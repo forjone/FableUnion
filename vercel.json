@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/imggen/:path*", "destination": "https://sub.tkrednote.com/:path*" }
+  ]
+}

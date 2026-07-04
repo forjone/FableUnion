@@ -6,7 +6,7 @@ import { characterSVG } from '../art/characters';
 import { star5 } from '../art/props';
 import { svgToImage, wrapPropSVG } from '../art/raster';
 import { SCENE_THEMES, TONE_ACCENT, themeOf, workTitle } from './sketch';
-import type { GameSpec, SlotProfile } from './types';
+import type { GameSpec, SiteSpec, SlotProfile } from './types';
 
 export const GAME_W = 880;
 export const GAME_H = 380;
@@ -16,8 +16,11 @@ const SY = GAME_H / 320;
 
 export function buildSpec(profile: SlotProfile): GameSpec {
   return {
+    type: 'game',
     title: workTitle(profile),
     mechanic: profile.mechanic ?? 'race',
+    mechanicExtra:
+      profile.mechanic_extra === 'collect' && profile.mechanic !== 'collect' ? 'collect' : null,
     heroId: profile.subject?.id ?? 'star',
     heroLabel: profile.subject?.label ?? '小主角',
     companionId: profile.companion?.id ?? null,
@@ -25,6 +28,22 @@ export function buildSpec(profile: SlotProfile): GameSpec {
     tone: profile.tone ?? 'lively',
     effect: profile.key_detail?.effect ?? null,
     difficulty: profile.difficulty,
+  };
+}
+
+export function buildSiteSpec(profile: SlotProfile): SiteSpec {
+  return {
+    type: 'website',
+    title: workTitle(profile),
+    kind: profile.site_kind ?? 'gallery',
+    heroId: profile.subject?.id ?? 'star',
+    heroLabel: profile.subject?.label ?? '小主角',
+    companionId: profile.companion?.id ?? null,
+    sceneId: profile.scene?.id ?? 'meadow',
+    tone: profile.tone ?? 'lively',
+    effect: profile.key_detail?.effect ?? null,
+    difficulty: profile.difficulty,
+    mechanicExtra: null,
   };
 }
 
@@ -133,6 +152,10 @@ export class GameRuntime {
   private obstacles: { x: number; passed?: boolean }[] = [];
   private passed = 0;
   private scroll = 0;
+  // 组合玩法：主玩法沿路捡星星（原型第二轮设计）
+  private combo = false;
+  private starScore = 0;
+  private jumpStars: { x: number; got?: boolean }[] = [];
   // pop
   private bubbles: { x: number; y: number; r: number; life: number }[] = [];
 
@@ -172,6 +195,7 @@ export class GameRuntime {
     canvas.height = GAME_H;
     this.ctx = canvas.getContext('2d')!;
     this.hard = spec.difficulty === 'hard';
+    this.combo = spec.mechanicExtra === 'collect' && spec.mechanic !== 'collect';
     this.accent = TONE_ACCENT[spec.tone].banner;
     this.theme = themeOf(spec.sceneId);
     this.goal = { race: 1, collect: this.hard ? 12 : 8, dodge: this.hard ? 22 : 15, jump: this.hard ? 10 : 6, pop: this.hard ? 15 : 10 }[
@@ -339,6 +363,24 @@ export class GameRuntime {
       this.progress = Math.min(1, this.progress + this.speed * dt);
       for (const r of this.rivals) r.p = Math.min(1, r.p + r.v * dt * (0.8 + Math.random() * 0.5));
       if (this.spec.effect === 'rainbow' && this.speed > 0.05) this.trail(this.heroXOnTrack(), GROUND - 30);
+      // 组合：赛道上空飘落星星，接住有小加速
+      if (this.combo) {
+        if (this.t % 1.5 < dt) {
+          this.drops.push({ x: 60 + Math.random() * (GAME_W - 120), y: -20, v: 140, isItem: true });
+        }
+        const hx = this.heroXOnTrack();
+        for (const d of this.drops) {
+          d.y += d.v * dt;
+          if (!d.caught && Math.abs(d.x - hx) < 46 && Math.abs(d.y - (GROUND - 34)) < 46) {
+            d.caught = true;
+            this.starScore++;
+            this.progress = Math.min(1, this.progress + 0.03);
+            this.spark(d.x, d.y);
+            sfx.collect();
+          }
+        }
+        this.drops = this.drops.filter((d) => d.y < GAME_H + 30 && !d.caught);
+      }
       if (this.progress >= 1) this.win();
       else if (this.rivals.some((r) => r.p >= 1)) {
         // 对手先到：不算失败，笑一笑重新开跑
@@ -359,18 +401,26 @@ export class GameRuntime {
           x: 40 + Math.random() * (GAME_W - 80),
           y: -20,
           v: (isCollect ? 130 : 150) * (this.hard ? 1.35 : 1),
-          isItem: isCollect,
+          // 躲避+捡星星组合：35% 掉落物是星星
+          isItem: isCollect || (this.combo && Math.random() < 0.35),
         });
       }
       for (const d of this.drops) d.y += d.v * dt;
       for (const d of this.drops) {
         if (!d.caught && Math.abs(d.x - this.heroX) < 42 && Math.abs(d.y - (GROUND - 30)) < 40) {
           d.caught = true;
-          if (isCollect) {
-            this.score++;
-            sfx.collect();
-            this.spark(d.x, d.y);
-            if (this.score >= this.goal) this.win();
+          if (d.isItem) {
+            if (isCollect) {
+              this.score++;
+              sfx.collect();
+              this.spark(d.x, d.y);
+              if (this.score >= this.goal) this.win();
+            } else {
+              this.starScore++;
+              this.surviveT += 1.2; // 星星让胜利更近
+              this.spark(d.x, d.y);
+              sfx.collect();
+            }
           } else {
             this.wobble = 0.8;
             sfx.bump();
@@ -390,7 +440,21 @@ export class GameRuntime {
       this.heroY = Math.min(GROUND - 36, this.heroY + this.heroVy * dt);
       if (this.heroY >= GROUND - 36) this.heroVy = 0;
       if (this.obstacles.length === 0 || this.obstacles[this.obstacles.length - 1].x < this.scroll + GAME_W - 260) {
-        this.obstacles.push({ x: this.scroll + GAME_W + Math.random() * 160 });
+        const ox = this.scroll + GAME_W + Math.random() * 160;
+        this.obstacles.push({ x: ox });
+        if (this.combo) this.jumpStars.push({ x: ox - 140 }); // 跳跃弧线顶点处放星星
+      }
+      if (this.combo) {
+        for (const s of this.jumpStars) {
+          const sx = s.x - this.scroll;
+          if (!s.got && Math.abs(sx - this.heroX) < 34 && this.heroY < GROUND - 75) {
+            s.got = true;
+            this.starScore++;
+            this.spark(sx, GROUND - 105);
+            sfx.collect();
+          }
+        }
+        this.jumpStars = this.jumpStars.filter((s) => s.x - this.scroll > -40 && !s.got);
       }
       for (const o of this.obstacles) {
         const ox = o.x - this.scroll;
@@ -554,6 +618,7 @@ export class GameRuntime {
       }
       this.rivals.forEach((r, i) =>
         this.img(this.sprites.rivals[i], 70 + r.p * (GAME_W - 150), GROUND - 96 - i * 56, 52));
+      for (const d of this.drops) this.img(this.sprites.item, d.x, d.y, 36);
       hx = this.heroXOnTrack();
       hy = GROUND - 34;
     } else if (m === 'collect' || m === 'dodge') {
@@ -561,6 +626,7 @@ export class GameRuntime {
       hy = GROUND - 30;
     } else if (m === 'jump') {
       for (const o of this.obstacles) this.img(this.sprites.obstacle, o.x - this.scroll, GROUND - 24, 48);
+      for (const s of this.jumpStars) if (!s.got) this.img(this.sprites.item, s.x - this.scroll, GROUND - 105, 34);
       hx = this.heroX;
     } else if (m === 'pop') {
       for (const b of this.bubbles) {
@@ -671,6 +737,13 @@ export class GameRuntime {
       c.textAlign = 'left';
       c.textBaseline = 'middle';
       c.fillText(`${this.score} / ${this.goal}`, 272, 28);
+    } else if (this.combo) {
+      this.img(this.sprites.item, 284, 27, 28);
+      c.fillStyle = '#413A5C';
+      c.font = '22px "ZCOOL KuaiLe", sans-serif';
+      c.textAlign = 'left';
+      c.textBaseline = 'middle';
+      c.fillText(`× ${this.starScore}`, 302, 28);
     }
   }
 

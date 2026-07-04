@@ -10,8 +10,8 @@ import {
   treeRound, trophy, volcanoMt, waves, type PropFn,
 } from '../art/props';
 import { INK, PALETTE as P } from '../art/style';
-import { mechanicMeta } from './lexicon';
-import type { MechanicId, SlotProfile, ToneId } from './types';
+import { mechanicMeta, siteKindMeta } from './lexicon';
+import type { MechanicId, SiteKind, SlotProfile, ToneId } from './types';
 
 export interface SceneTheme {
   sky: [string, string];
@@ -207,10 +207,53 @@ function detailFx(profile: SlotProfile, hx: number, hy: number, hsize: number): 
   }
 }
 
+/** 网站类作品的“页面感”布局层：画框/翻开的书/横幅/气球 */
+function siteLayer(kind: SiteKind, final: boolean): string {
+  const parts: string[] = [];
+  const frame = (x: number, y: number, w: number, h: number, inner: string) =>
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="#fff" stroke="${INK}" stroke-width="3"/>` + inner;
+  if (kind === 'gallery') {
+    parts.push(frame(216, 88, 72, 56, star5(252, 116, 0.6)));
+    parts.push(frame(306, 108, 72, 56, flower(342, 136, 0.7)));
+    parts.push(frame(396, 82, 66, 52, sun(429, 108, 0.55)));
+    if (final) parts.push(sparkle(300, 66, 0.8));
+  } else if (kind === 'story') {
+    parts.push(`
+      <path d="M 230 200 Q 230 130 300 138 L 300 210 Q 240 202 230 214 Z" fill="#fff" stroke="${INK}" stroke-width="3"/>
+      <path d="M 370 200 Q 370 130 300 138 L 300 210 Q 360 202 370 214 Z" fill="#FFF6E8" stroke="${INK}" stroke-width="3"/>
+      <path d="M 245 160 h 40 M 245 174 h 34 M 316 160 h 40 M 316 174 h 34" stroke="#D8BFA4" stroke-width="3" stroke-linecap="round"/>
+    `);
+    parts.push(star5(300, 116, 0.5));
+  } else if (kind === 'intro') {
+    parts.push(`
+      <rect x="222" y="92" width="176" height="34" rx="17" fill="${P.sunshine}" stroke="${INK}" stroke-width="3"/>
+      <path d="M 250 138 h 120 M 258 154 h 104 M 266 170 h 88" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+    `);
+    parts.push(sparkle(412, 100, 0.8));
+  } else if (kind === 'invite') {
+    parts.push(balloonProp(250, 110, 0.9));
+    parts.push(balloonProp(390, 100, 0.75));
+    parts.push(`
+      <path d="M 240 74 L 300 92 L 360 74" stroke="${INK}" stroke-width="2.5" fill="none"/>
+      ${[252, 276, 300, 324, 348].map((x, i) =>
+        `<path d="M ${x - 9} ${76 + (i === 2 ? 18 : i === 1 || i === 3 ? 12 : 2)} l 9 16 l 9 -16 Z" fill="${[P.coral, P.sunshine, P.mint, P.rose, P.sky][i]}" stroke="${INK}" stroke-width="2"/>`).join('')}
+    `);
+    if (final) parts.push(cupcake(320, 200, 0.9));
+  }
+  return parts.join('');
+}
+
 function mechanicLayer(profile: SlotProfile, final: boolean): string {
+  if (profile.creation_type === 'website') {
+    return siteLayer(profile.site_kind ?? 'gallery', final);
+  }
   const m = profile.mechanic;
   const theme = themeOf(profile.scene?.id);
   const parts: string[] = [];
+  // 组合玩法：主玩法之上撒一串可捡的星星
+  if (profile.mechanic_extra === 'collect' && m !== 'collect') {
+    [[200, 150], [280, 120], [360, 148]].forEach(([x, y]) => parts.push(star5(x, y, 0.55)));
+  }
   if (m === 'race') {
     parts.push(`<line x1="20" y1="${GROUND_Y + 44}" x2="${W - 20}" y2="${GROUND_Y + 44}" stroke="#fff" stroke-width="4" stroke-dasharray="18 12" opacity="0.9"/>`);
     parts.push(flagCheck(W - 52, GROUND_Y + 8, 1));
@@ -313,11 +356,14 @@ export function optionSketch(profile: SlotProfile, patch: Partial<SlotProfile>, 
   return sketchSVG(merged, { quality: 'draft', uid });
 }
 
-/** 作品名：喷火恐龙大赛跑 */
+/** 作品名：喷火恐龙大赛跑 / 恐龙奇幻画廊 */
 export function workTitle(profile: SlotProfile): string {
   const detail = profile.key_detail ? profile.key_detail.label.replace(/^会/, '') : '';
   const subject = profile.subject?.label ?? '奇想';
-  const noun = profile.mechanic ? mechanicMeta(profile.mechanic).titleNoun : '大冒险';
+  const noun =
+    profile.creation_type === 'website'
+      ? profile.site_kind ? siteKindMeta(profile.site_kind).titleNoun : '小主页'
+      : profile.mechanic ? mechanicMeta(profile.mechanic).titleNoun : '大冒险';
   return `${detail}${subject}${noun}`;
 }
 
@@ -326,8 +372,20 @@ export function workTitle(profile: SlotProfile): string {
 const badgeWrap = (inner: string, vb = '0 0 96 96') =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}">${inner}</svg>`;
 
-export function mechanicBadgeSVG(id: MechanicId): string {
+export function mechanicBadgeSVG(id: MechanicId | SiteKind): string {
   switch (id) {
+    case 'gallery': return badgeWrap(
+      `<rect x="14" y="22" width="30" height="26" rx="4" fill="#fff" stroke="${INK}" stroke-width="3"/>` +
+      `<rect x="52" y="30" width="30" height="26" rx="4" fill="#fff" stroke="${INK}" stroke-width="3"/>` +
+      star5(29, 35, 0.55) + flower(67, 44, 0.6) + sparkle(48, 70, 0.8));
+    case 'story': return badgeWrap(
+      `<path d="M 18 66 Q 18 30 48 34 L 48 70 Q 24 66 18 72 Z" fill="#fff" stroke="${INK}" stroke-width="3"/>` +
+      `<path d="M 78 66 Q 78 30 48 34 L 48 70 Q 72 66 78 72 Z" fill="#FFF6E8" stroke="${INK}" stroke-width="3"/>` +
+      star5(48, 22, 0.5));
+    case 'intro': return badgeWrap(
+      `<rect x="16" y="26" width="64" height="18" rx="9" fill="${P.sunshine}" stroke="${INK}" stroke-width="3"/>` +
+      `<path d="M 26 56 h 44 M 32 68 h 32" stroke="${INK}" stroke-width="4" stroke-linecap="round" opacity="0.5"/>`);
+    case 'invite': return badgeWrap(balloonProp(36, 40, 0.8) + balloonProp(62, 34, 0.65) + sparkle(76, 66, 0.8));
     case 'race': return badgeWrap(flagCheck(48, 48, 1.4));
     case 'collect': return badgeWrap(star5(48, 44, 1.6) + sparkle(76, 24, 0.9));
     case 'dodge': return badgeWrap(
