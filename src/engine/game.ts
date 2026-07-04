@@ -164,8 +164,12 @@ export class GameRuntime {
 
   private goal: number;
   private hard: boolean;
+  /** 关卡难度系数（“玩通关了马上变出下一关”的兑现） */
+  private pace: number;
   private accent: string;
   private theme: (typeof SCENE_THEMES)[string];
+  private musicIv = 0;
+  private musicStep = 0;
 
   private keyDown = (e: KeyboardEvent) => {
     if (e.code === 'ArrowLeft') this.held.left = true;
@@ -190,19 +194,23 @@ export class GameRuntime {
     private spec: GameSpec,
     private sprites: SpriteSet,
     private hooks: RuntimeHooks,
+    private level = 1,
   ) {
     canvas.width = GAME_W;
     canvas.height = GAME_H;
     this.ctx = canvas.getContext('2d')!;
     this.hard = spec.difficulty === 'hard';
+    this.pace = (this.hard ? 1.3 : 1) * (1 + (level - 1) * 0.12);
     this.combo = spec.mechanicExtra === 'collect' && spec.mechanic !== 'collect';
     this.accent = TONE_ACCENT[spec.tone].banner;
     this.theme = themeOf(spec.sceneId);
-    this.goal = { race: 1, collect: this.hard ? 12 : 8, dodge: this.hard ? 22 : 15, jump: this.hard ? 10 : 6, pop: this.hard ? 15 : 10 }[
-      spec.mechanic
-    ];
+    const baseGoal = { race: 1, collect: 8, dodge: 15, jump: 6, pop: 10 }[spec.mechanic];
+    this.goal = spec.mechanic === 'race' ? 1 : baseGoal + (this.hard ? 3 : 0) + (level - 1) * 2;
     if (spec.mechanic === 'race') {
-      this.rivals = this.sprites.rivals.map((_, i) => ({ p: 0, v: (this.hard ? 0.085 : 0.062) + i * 0.008 }));
+      this.rivals = this.sprites.rivals.map((_, i) => ({
+        p: 0,
+        v: (this.hard ? 0.085 : 0.062) + i * 0.008 + (level - 1) * 0.007,
+      }));
       this.heroX = 70;
     }
     canvas.addEventListener('pointerdown', this.onPointer);
@@ -210,8 +218,21 @@ export class GameRuntime {
     window.addEventListener('keyup', this.keyUp);
   }
 
+  // —— 背景音乐：WebAudio 合成的轻快五声音阶循环，跟全局静音联动 ——
+  private startMusic() {
+    const melody = [523, 659, 784, 659, 880, 784, 659, 587];
+    this.musicIv = window.setInterval(() => {
+      if (muted || this.won) return;
+      const n = melody[this.musicStep % melody.length];
+      beep(n / 2, 0.16, 'triangle', 0.022);
+      if (this.musicStep % 4 === 0) beep(n / 4, 0.3, 'sine', 0.018);
+      this.musicStep++;
+    }, 250);
+  }
+
   start() {
     this.running = true;
+    this.startMusic();
     this.last = performance.now();
     const loop = (now: number) => {
       if (!this.running) return;
@@ -227,6 +248,7 @@ export class GameRuntime {
 
   destroy() {
     this.running = false;
+    clearInterval(this.musicIv);
     cancelAnimationFrame(this.raf);
     this.canvas.removeEventListener('pointerdown', this.onPointer);
     window.removeEventListener('keydown', this.keyDown);
@@ -395,12 +417,12 @@ export class GameRuntime {
       if (this.held.right) this.heroX += moveSpeed;
       this.heroX = Math.max(40, Math.min(GAME_W - 40, this.heroX));
       const isCollect = m === 'collect';
-      const spawnEvery = isCollect ? 0.8 : this.hard ? 0.7 : 0.95;
+      const spawnEvery = (isCollect ? 0.8 : 0.95) / this.pace;
       if (this.drops.length === 0 || this.t % spawnEvery < dt) {
         this.drops.push({
           x: 40 + Math.random() * (GAME_W - 80),
           y: -20,
-          v: (isCollect ? 130 : 150) * (this.hard ? 1.35 : 1),
+          v: (isCollect ? 130 : 150) * this.pace,
           // 躲避+捡星星组合：35% 掉落物是星星
           isItem: isCollect || (this.combo && Math.random() < 0.35),
         });
@@ -435,7 +457,7 @@ export class GameRuntime {
       }
       if (this.spec.effect === 'rainbow' && (this.held.left || this.held.right)) this.trail(this.heroX, GROUND - 20);
     } else if (m === 'jump') {
-      this.scroll += dt * (this.hard ? 260 : 210);
+      this.scroll += dt * (210 * this.pace);
       this.heroVy += 1150 * dt;
       this.heroY = Math.min(GROUND - 36, this.heroY + this.heroVy * dt);
       if (this.heroY >= GROUND - 36) this.heroVy = 0;
@@ -480,7 +502,7 @@ export class GameRuntime {
           x: 60 + Math.random() * (GAME_W - 120),
           y: 120 + Math.random() * (GAME_H - 220),
           r: 26 + Math.random() * 18,
-          life: this.hard ? 2.2 : 3.5,
+          life: Math.max(1.2, (this.hard ? 2.2 : 3.5) - (this.level - 1) * 0.25),
         });
       }
       for (const b of this.bubbles) { b.life -= dt; b.y -= 12 * dt; }
@@ -703,7 +725,10 @@ export class GameRuntime {
       c.font = '44px "ZCOOL KuaiLe", sans-serif';
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.fillText('你赢啦！', GAME_W / 2, GAME_H / 2 + 52);
+      c.fillText('你赢啦！', GAME_W / 2, GAME_H / 2 + 44);
+      c.font = '22px "ZCOOL KuaiLe", sans-serif';
+      c.fillStyle = '#8A7A6E';
+      c.fillText(`第 ${this.level} 关通关！`, GAME_W / 2, GAME_H / 2 + 88);
     }
   }
 

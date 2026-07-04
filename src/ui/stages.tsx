@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { MagicCover } from '../app/imagegen';
-import { sttSupported, startStt } from '../app/speech';
+import { listenForAnswer, sttSupported, startStt } from '../app/speech';
 import { characterSVG } from '../art/characters';
 import { IconCheck, IconGamepad, IconHand, IconMic, IconPencil, IconReplay, Mascot } from '../art/icons';
 import {
@@ -164,7 +164,7 @@ export function SketchStage(props: {
 }) {
   const [left, setLeft] = useState(PASS_AFTER_MS);
   const svg = sketchSVG(props.profile, { quality: 'draft', uid: 'draft' });
-  const { onPass } = props;
+  const { onPass, onInterrupt } = props;
   useEffect(() => {
     const started = Date.now();
     const iv = setInterval(() => {
@@ -174,6 +174,11 @@ export function SketchStage(props: {
     }, 100);
     return () => clearInterval(iv);
   }, [onPass]);
+  // 语音表态：说“好耶”通过，说“不是这样的”打断（低龄档零按钮依赖）
+  useEffect(() => {
+    const h = listenForAnswer({ onYes: () => onPass('button'), onNo: onInterrupt });
+    return () => h?.stop();
+  }, [onPass, onInterrupt]);
   return (
     <div className="stage-sketch">
       <div className="proto-card sketch-card pop-in">
@@ -296,7 +301,12 @@ export function ConfirmStage(props: {
     uid: 'final',
     title: workTitle(props.profile),
   });
-  const { magic } = props;
+  const { magic, onYes, onNo } = props;
+  // 唯一显式确认也支持语音表态：说“对！”开始造，说“不对”再改改
+  useEffect(() => {
+    const h = listenForAnswer({ onYes, onNo });
+    return () => h?.stop();
+  }, [onYes, onNo]);
   return (
     <div className="stage-confirm">
       <span className="confirm-badge">

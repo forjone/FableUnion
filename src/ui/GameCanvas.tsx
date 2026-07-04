@@ -8,7 +8,9 @@ import type { GameSpec } from '../engine/types';
 
 export function PlayStage(props: {
   spec: GameSpec;
+  won: boolean;
   onWin: () => void;
+  onNextLevel: (level: number) => void;
   onIterate: () => void;
   onShare: () => void;
   onReplay: () => void;
@@ -19,6 +21,7 @@ export function PlayStage(props: {
   const [sprites, setSprites] = useState<SpriteSet | null>(null);
   const [started, setStarted] = useState(false);
   const [round, setRound] = useState(0);
+  const [level, setLevel] = useState(1);
   const { spec, onWin } = props;
 
   useEffect(() => {
@@ -29,11 +32,11 @@ export function PlayStage(props: {
 
   useEffect(() => {
     if (!started || !sprites || !canvasRef.current) return;
-    const rt = new GameRuntime(canvasRef.current, spec, sprites, { onWin });
+    const rt = new GameRuntime(canvasRef.current, spec, sprites, { onWin }, level);
     runtimeRef.current = rt;
     rt.start();
     return () => { rt.destroy(); runtimeRef.current = null; };
-  }, [started, sprites, spec, onWin, round]);
+  }, [started, sprites, spec, onWin, round, level]);
 
   const hold = (c: 'left' | 'right' | 'action') => ({
     onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); runtimeRef.current?.press(c); },
@@ -55,6 +58,7 @@ export function PlayStage(props: {
       <div className="play-head">
         <h2 className="play-title">{spec.title}</h2>
         <span className="done-chip">造好啦</span>
+        {level > 1 && <span className="level-chip">第 {level} 关</span>}
       </div>
       <div className="game-frame">
         <canvas ref={canvasRef} className="game-canvas" key={round} />
@@ -70,6 +74,20 @@ export function PlayStage(props: {
         )}
       </div>
       <div className="play-controls">
+        {props.won && (
+          <button
+            className="btn-action green"
+            type="button"
+            onClick={() => {
+              const next = level + 1;
+              setLevel(next);
+              setRound((r) => r + 1);
+              props.onNextLevel(next);
+            }}
+          >
+            <IconPlay size={24} /><span className="t-label">下一关！</span>
+          </button>
+        )}
         {needsLR && (
           <>
             <button className="btn-action blue" type="button" {...hold('left')}><IconArrow dir="left" size={30} /></button>

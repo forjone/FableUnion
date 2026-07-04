@@ -1,0 +1,16 @@
+{
+  "name": "小灵造造",
+  "short_name": "小灵造造",
+  "description": "让孩子用说话就能造出游戏和网页的创作工具",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#F4E4CE",
+  "theme_color": "#F4E4CE",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -449,7 +449,13 @@ export default function App() {
           {stage.name === 'play' && spec && spec.type !== 'website' && (
             <PlayStage
               spec={spec as GameSpec}
+              won={stage.won}
               onWin={gameWon}
+              onNextLevel={(level) => {
+                record('replay');
+                setStage({ name: 'play', won: false });
+                say(`第${level}关来啦！会更快更难哦，加油！`);
+              }}
               onIterate={iterate}
               onShare={shareWork}
               onReplay={() => { record('replay'); setStage({ name: 'play', won: false }); }}

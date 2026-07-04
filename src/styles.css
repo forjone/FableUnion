@@ -543,6 +543,15 @@ button { font-family: var(--font-body); color: var(--ink); }
   padding: 5px 14px;
   border-radius: 12px;
 }
+.level-chip {
+  background: var(--yellow);
+  color: #6A4A12;
+  font-family: var(--font-display);
+  font-size: 15px;
+  padding: 5px 14px;
+  border-radius: 12px;
+}
+.btn-action.green { background: var(--green); box-shadow: 0 10px 20px -8px rgba(87, 179, 104, 0.7); animation: kPop 0.4s ease; }
 .game-frame {
   position: relative;
   border-radius: 26px;

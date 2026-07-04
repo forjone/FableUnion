@@ -80,6 +80,23 @@ export function startStt(onText: (text: string, final: boolean) => void): SttHan
   }
 }
 
+/**
+ * 语音表态（PRD 3.4/3.5）：在草图/确认页听孩子说“好耶/对”或“不是/不对”。
+ * 防回声：小灵自己正在说话（TTS 播报中）时忽略识别结果，且只认短句，
+ * 避免麦克风把“……对不对呀？”听回去误判。
+ */
+export function listenForAnswer(handlers: { onYes?: () => void; onNo?: () => void }): SttHandle | null {
+  return startStt((text, final) => {
+    if (!final) return;
+    try { if (window.speechSynthesis?.speaking) return; } catch { /* ignore */ }
+    const t = text.replace(/[\s，。！？,.!?]/g, '');
+    if (t.length === 0 || t.length > 8) return;
+    // 否定优先：“不对”里包含“对”
+    if (/不是|不对|不要|不喜欢|换一个|重来/.test(t)) { handlers.onNo?.(); return; }
+    if (/^(好耶|好呀|好的|好|对|嗯|耶|可以|就是这个|喜欢|要)/.test(t)) handlers.onYes?.();
+  });
+}
+
 /** 活泼、偏慢的儿童向播报；每次开口先打断上一句（支持“打断重说”） */
 export function speak(text: string) {
   if (!enabled) return;
