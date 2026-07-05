@@ -83,6 +83,9 @@ export interface DialogueEntry {
   at: number;
 }
 
+/** 配饰（角色装扮） */
+export type AccessoryId = 'crown' | 'cap' | 'glasses' | 'bow' | 'wings';
+
 /** 深度构建产物的参数（PRD 3.6），可完整序列化存档 */
 export interface GameSpec {
   type?: 'game'; // 旧档案无此字段，缺省视为 game
@@ -98,6 +101,8 @@ export interface GameSpec {
   tone: ToneId;
   effect: EffectId | null;
   difficulty: Difficulty;
+  /** 主角的装扮（游玩页可随时换） */
+  accessory?: AccessoryId | null;
 }
 
 /** 网站类作品的构建参数（PRD 3.6 网站分流） */
@@ -113,6 +118,7 @@ export interface SiteSpec {
   effect: EffectId | null;
   difficulty: Difficulty;
   mechanicExtra: null;
+  accessory?: AccessoryId | null;
 }
 
 export type WorkSpec = GameSpec | SiteSpec;

@@ -246,15 +246,54 @@ const SUBJECT_CHARS: Record<string, { base: BaseId; colors?: Partial<CharColors>
   wizard: { base: 'star', colors: { body: '#A78BFA', belly: '#E4D6FB', accent: '#C9B8F5' } },
 };
 
-/** 角色的 SVG 内部标记（120×120 坐标系） */
-export function characterMarkup(subjectId: string | undefined): string {
+// —— 配饰系统（角色装扮）：叠加在角色头部/身侧的可爱小物件 ——
+
+export type AccessoryId = 'crown' | 'cap' | 'glasses' | 'bow' | 'wings';
+
+export const ACCESSORIES: { id: AccessoryId; label: string }[] = [
+  { id: 'crown', label: '小皇冠' },
+  { id: 'cap', label: '棒球帽' },
+  { id: 'glasses', label: '酷眼镜' },
+  { id: 'bow', label: '蝴蝶结' },
+  { id: 'wings', label: '小翅膀' },
+];
+
+function accessoryMarkup(id: AccessoryId): string {
+  switch (id) {
+    case 'crown':
+      return `<path d="M 42 30 L 46 12 L 54 24 L 60 8 L 66 24 L 74 12 L 78 30 Q 60 36 42 30"
+        fill="${P.sunshine}" ${S}/>
+        <circle cx="60" cy="8" r="3" fill="${P.coral}" stroke="${INK}" stroke-width="2"/>`;
+    case 'cap':
+      return `<path d="M 38 30 Q 38 8 60 8 Q 82 8 82 30 Q 60 36 38 30" fill="${P.sky}" ${S}/>
+        <path d="M 78 26 Q 100 24 102 32 Q 92 38 76 34" fill="${P.sky}" ${S}/>
+        <circle cx="60" cy="8" r="4" fill="#fff" stroke="${INK}" stroke-width="2"/>`;
+    case 'glasses':
+      return `<circle cx="44" cy="55" r="13" fill="rgba(127,211,247,0.35)" stroke="${INK}" stroke-width="3.5"/>
+        <circle cx="76" cy="55" r="13" fill="rgba(127,211,247,0.35)" stroke="${INK}" stroke-width="3.5"/>
+        <path d="M 57 55 Q 60 51 63 55" stroke="${INK}" stroke-width="3.5" fill="none"/>`;
+    case 'bow':
+      return `<g transform="translate(85 16) rotate(18)">
+        <path d="M 0 0 L -16 -9 Q -20 0 -16 9 Z" fill="${P.rose}" ${S}/>
+        <path d="M 0 0 L 16 -9 Q 20 0 16 9 Z" fill="${P.rose}" ${S}/>
+        <circle r="4.5" fill="${P.coral}" stroke="${INK}" stroke-width="2"/>
+      </g>`;
+    case 'wings':
+      return `<path d="M 16 62 Q -6 44 4 26 Q 20 32 24 50 Q 26 58 16 62" fill="#fff" ${S} opacity="0.95"/>
+        <path d="M 104 62 Q 126 44 116 26 Q 100 32 96 50 Q 94 58 104 62" fill="#fff" ${S} opacity="0.95"/>`;
+  }
+}
+
+/** 角色的 SVG 内部标记（120×120 坐标系），可叠加配饰 */
+export function characterMarkup(subjectId: string | undefined, accessory?: AccessoryId | null): string {
   const key = subjectId?.startsWith('custom:') ? undefined : subjectId;
   const spec = (key && SUBJECT_CHARS[key]) || { base: 'star' as BaseId };
   const colors = { ...DEFAULT_COLORS[spec.base], ...spec.colors };
-  return BASES[spec.base](colors);
+  const body = BASES[spec.base](colors);
+  return accessory ? body + accessoryMarkup(accessory) : body;
 }
 
 /** 完整 SVG 字符串（可直接注入 DOM 或栅格化给 Canvas 用） */
-export function characterSVG(subjectId: string | undefined, size = 120): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="${size}" height="${size}">${characterMarkup(subjectId)}</svg>`;
+export function characterSVG(subjectId: string | undefined, size = 120, accessory?: AccessoryId | null): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="${size}" height="${size}">${characterMarkup(subjectId, accessory)}</svg>`;
 }

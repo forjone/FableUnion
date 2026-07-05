@@ -384,14 +384,23 @@ export function parseUtterance(text: string, base?: SlotProfile | null): ParseRe
   const subjectHits = matchSubjects(norm, negs);
   if (subjectHits.length > 0) {
     const hero = subjectHits[0];
-    if (!profile.subject || profile.subject.id !== hero.thing.id) {
-      profile.subject = hero.thing;
-      profile.raw.subject = hero.raw;
+    // 迭代时说“让小猫也一起来”→ 加同伴，而不是换掉主角
+    const wantsCompanion =
+      !!base && !!profile.subject && profile.subject.id !== hero.thing.id &&
+      /一起|作伴|同伴|陪|加个|也来/.test(norm);
+    if (wantsCompanion) {
+      profile.companion = hero.thing;
       changed.push('subject');
-    }
-    profile.confidence.subject = 'high';
-    if (subjectHits.length > 1) {
-      profile.companion = subjectHits[1].thing;
+    } else {
+      if (!profile.subject || profile.subject.id !== hero.thing.id) {
+        profile.subject = hero.thing;
+        profile.raw.subject = hero.raw;
+        changed.push('subject');
+      }
+      profile.confidence.subject = 'high';
+      if (subjectHits.length > 1) {
+        profile.companion = subjectHits[1].thing;
+      }
     }
   } else if (!profile.subject) {
     const custom = captureCustomSubject(text, norm);
@@ -486,8 +495,12 @@ export function parseUtterance(text: string, base?: SlotProfile | null): ParseRe
     }
   }
 
+  // —— 难度：明确说了就直接设置，不必再问 ——
+  if (/大挑战|难一点|超级难|最难/.test(norm)) profile.difficulty = 'hard';
+  else if (/轻松一点|简单一点|容易一点/.test(norm)) profile.difficulty = 'easy';
+
   // —— 规则类提问（难度）：唯一的兜底选择题场景 ——
-  const asksDifficulty = /难不难|几关|多少关|难度|要不要难/.test(text);
+  const asksDifficulty = /难不难|几关|多少关|要不要难/.test(text) && !/大挑战|难一点/.test(norm);
 
   // —— 分歧判定：一次只抛出一个，优先级 主体 > 玩法/功能 > 基调 > 规则 ——
   // 判定标准（PRD 3.2）：该槽位取值不同是否让草图明显不同。

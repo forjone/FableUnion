@@ -14,7 +14,10 @@ export type MetricEvent =
   | 'replay'
   | 'magic_ready'          // AI 魔法图成功
   | 'magic_failed'
-  | 'safety_block';
+  | 'safety_block'
+  | 'suggestion_shown'     // 小灵主动提议展示
+  | 'suggestion_accept'    // 提议被采纳
+  | 'duel_start';          // 双人对战开局
 
 const KEY = 'fable.metrics';
 
@@ -54,6 +57,8 @@ export function metricsSummary(): { label: string; value: string }[] {
     { label: '“就是这个”确认率', value: pct(n('confirm_yes'), n('confirm_yes') + n('confirm_no')) },
     { label: '继续迭代次数', value: String(n('iterate')) },
     { label: 'AI 魔法图成功率', value: pct(n('magic_ready'), n('magic_ready') + n('magic_failed')) },
+    { label: '小灵提议采纳率', value: pct(n('suggestion_accept'), n('suggestion_shown')) },
+    { label: '双人对战开局数', value: String(n('duel_start')) },
     { label: '安全拦截次数', value: String(n('safety_block')) },
   ];
 }

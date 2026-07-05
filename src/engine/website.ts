@@ -142,7 +142,7 @@ export function buildSiteHTML(spec: SiteSpec, profile: SlotProfile): string {
 </head>
 <body>
 <header>
-  <div class="hero-art">${characterSVG(spec.heroId)}</div>
+  <div class="hero-art">${characterSVG(spec.heroId, 120, spec.accessory)}</div>
   <h1>${esc(spec.title)}</h1>
 </header>
 <main>${body}</main>

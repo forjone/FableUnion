@@ -56,7 +56,7 @@ export function WelcomeStage(props: {
                 <button className="work-main" type="button" onClick={() => props.onPlay(w)}>
                   {w.coverUrl
                     ? <img className="work-cover" src={w.coverUrl} alt="" />
-                    : <span className="work-art" dangerouslySetInnerHTML={{ __html: characterSVG(w.spec.heroId, 44) }} />}
+                    : <span className="work-art" dangerouslySetInnerHTML={{ __html: characterSVG(w.spec.heroId, 44, w.spec.accessory) }} />}
                   <span className="work-title">{w.title}</span>
                 </button>
                 <button className="work-edit" type="button" title="接着上次的改" onClick={() => props.onIterate(w)}>

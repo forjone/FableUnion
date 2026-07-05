@@ -1,16 +1,23 @@
 // ⑤ 成品游玩界面（原型 DONE 分镜）：Canvas 运行时 + 彩色大按钮触屏控制。
-// 素材先从矢量插画栅格化，加载完成后才允许开始。
+// 含：关卡递进、双人对决、角色装扮、小灵主动提议。
 
 import { useEffect, useRef, useState } from 'react';
-import { IconArrow, IconHome, IconMic, IconPlay, IconReplay, IconSparkle, IconTap } from '../art/icons';
+import type { AccessoryId } from '../art/characters';
+import { IconArrow, IconGamepad, IconHome, IconMic, IconPencil, IconPlay, IconReplay, IconSparkle, IconTap } from '../art/icons';
 import { GameRuntime, effectButtonLabel, loadSprites, type SpriteSet } from '../engine/game';
+import type { Suggestion } from '../engine/suggest';
 import type { GameSpec } from '../engine/types';
+import { DressUp, SuggestChip } from './bits';
 
 export function PlayStage(props: {
   spec: GameSpec;
   won: boolean;
+  suggestion: Suggestion | null;
   onWin: () => void;
   onNextLevel: (level: number) => void;
+  onDuel: () => void;
+  onDress: (acc: AccessoryId | null) => void;
+  onSuggest: (say: string) => void;
   onIterate: () => void;
   onShare: () => void;
   onReplay: () => void;
@@ -22,6 +29,8 @@ export function PlayStage(props: {
   const [started, setStarted] = useState(false);
   const [round, setRound] = useState(0);
   const [level, setLevel] = useState(1);
+  const [duel, setDuel] = useState(false);
+  const [dressOpen, setDressOpen] = useState(false);
   const { spec, onWin } = props;
 
   useEffect(() => {
@@ -32,11 +41,15 @@ export function PlayStage(props: {
 
   useEffect(() => {
     if (!started || !sprites || !canvasRef.current) return;
-    const rt = new GameRuntime(canvasRef.current, spec, sprites, { onWin }, level);
+    // 双人模式：任意作品都切换成同屏赛跑对决（无特效技能，保证公平）
+    const runSpec: GameSpec = duel
+      ? { ...spec, mechanic: 'race', mechanicExtra: null, effect: null }
+      : spec;
+    const rt = new GameRuntime(canvasRef.current, runSpec, sprites, { onWin }, duel ? 1 : level, duel);
     runtimeRef.current = rt;
     rt.start();
     return () => { rt.destroy(); runtimeRef.current = null; };
-  }, [started, sprites, spec, onWin, round, level]);
+  }, [started, sprites, spec, onWin, round, level, duel]);
 
   const hold = (c: 'left' | 'right' | 'action') => ({
     onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); runtimeRef.current?.press(c); },
@@ -44,44 +57,51 @@ export function PlayStage(props: {
     onPointerLeave: () => runtimeRef.current?.release(c),
   });
 
-  const needsLR = spec.mechanic === 'collect' || spec.mechanic === 'dodge';
-  const needsAction = spec.mechanic === 'race' || spec.mechanic === 'jump';
+  const restart = () => { setRound((r) => r + 1); };
+
+  const needsLR = !duel && (spec.mechanic === 'collect' || spec.mechanic === 'dodge');
+  const needsAction = !duel && (spec.mechanic === 'race' || spec.mechanic === 'jump');
   const actionLabel = spec.mechanic === 'race' ? '快跑！' : '跳一下';
-  const keyHint = needsAction
-    ? `用空格键${spec.mechanic === 'race' ? '加速' : '跳'}${spec.effect ? '、F 键放大招' : ''}，也可以点上面的按钮`
-    : needsLR
-      ? `用左右方向键移动${spec.effect ? '、F 键放大招' : ''}，也可以点按钮`
-      : `直接点画面里的泡泡${spec.effect ? '，F 键放大招' : ''}`;
+  const keyHint = duel
+    ? '左边选手点左半屏，右边选手点右半屏，看谁先到终点！'
+    : needsAction
+      ? `用空格键${spec.mechanic === 'race' ? '加速' : '跳'}${spec.effect ? '、F 键放大招' : ''}，也可以点上面的按钮`
+      : needsLR
+        ? `用左右方向键移动${spec.effect ? '、F 键放大招' : ''}，也可以点按钮`
+        : `直接点画面里的泡泡${spec.effect ? '，F 键放大招' : ''}`;
 
   return (
     <div className="stage-play">
       <div className="play-head">
         <h2 className="play-title">{spec.title}</h2>
         <span className="done-chip">造好啦</span>
-        {level > 1 && <span className="level-chip">第 {level} 关</span>}
+        {duel && <span className="level-chip">双人对决</span>}
+        {!duel && level > 1 && <span className="level-chip">第 {level} 关</span>}
       </div>
       <div className="game-frame">
-        <canvas ref={canvasRef} className="game-canvas" key={round} />
+        <canvas ref={canvasRef} className="game-canvas" key={`${round}-${duel ? 'd' : 's'}`} />
         {!started && (
-          <button
-            className="game-start"
-            type="button"
-            disabled={!sprites}
-            onClick={() => setStarted(true)}
-          >
+          <button className="game-start" type="button" disabled={!sprites} onClick={() => setStarted(true)}>
             <span className="game-start-btn"><IconPlay size={50} /></span>
           </button>
         )}
       </div>
+      {dressOpen && (
+        <DressUp
+          heroId={spec.heroId}
+          current={spec.accessory}
+          onPick={(acc) => { props.onDress(acc); }}
+        />
+      )}
       <div className="play-controls">
-        {props.won && (
+        {props.won && !duel && (
           <button
             className="btn-action green"
             type="button"
             onClick={() => {
               const next = level + 1;
               setLevel(next);
-              setRound((r) => r + 1);
+              restart();
               props.onNextLevel(next);
             }}
           >
@@ -99,17 +119,28 @@ export function PlayStage(props: {
             <IconTap size={26} /><span className="t-label">{actionLabel}</span>
           </button>
         )}
-        {spec.effect && (
+        {!duel && spec.effect && (
           <button className="btn-action red" type="button" onClick={() => runtimeRef.current?.special()}>
             {effectButtonLabel(spec.effect)}
           </button>
         )}
-        <span className="ctl-divider" aria-hidden />
         <button
-          className="btn-action ghost"
+          className={`btn-action ${duel ? 'blue' : 'ghost'}`}
           type="button"
-          onClick={() => { setStarted(false); setRound((r) => r + 1); props.onReplay(); }}
+          onClick={() => {
+            const next = !duel;
+            setDuel(next);
+            restart();
+            if (next) props.onDuel();
+          }}
         >
+          <IconGamepad size={24} /><span className="t-label">{duel ? '回到单人' : '双人比赛'}</span>
+        </button>
+        <button className="btn-action ghost" type="button" onClick={() => setDressOpen((o) => !o)}>
+          <IconPencil size={22} /><span className="t-label">装扮</span>
+        </button>
+        <span className="ctl-divider" aria-hidden />
+        <button className="btn-action ghost" type="button" onClick={() => { restart(); props.onReplay(); }}>
           <IconReplay size={22} color="#5B4A3E" /><span className="t-label">再玩一次</span>
         </button>
         <button className="btn-outline" type="button" onClick={props.onIterate}>
@@ -122,6 +153,9 @@ export function PlayStage(props: {
           <IconHome size={22} /><span className="t-label">收好</span>
         </button>
       </div>
+      {props.won && props.suggestion && (
+        <SuggestChip suggestion={props.suggestion} onAccept={() => props.onSuggest(props.suggestion!.say)} />
+      )}
       <p className="soft-hint">{keyHint}</p>
     </div>
   );

@@ -66,7 +66,7 @@ export async function loadSprites(spec: GameSpec): Promise<SpriteSet> {
     .concat(RIVAL_POOL.filter((r) => r !== spec.heroId && r !== spec.companionId))
     .slice(0, 2);
   const [hero, companion, item, obstacle, ...rest] = await Promise.all([
-    svgToImage(characterSVG(spec.heroId, 160)),
+    svgToImage(characterSVG(spec.heroId, 160, spec.accessory)),
     spec.companionId ? svgToImage(characterSVG(spec.companionId, 160)) : Promise.resolve(null),
     svgToImage(wrapPropSVG(star5(0, 0, 1.6))),
     svgToImage(wrapPropSVG(theme.obstacle(0, 0, 1.5))),
@@ -156,6 +156,10 @@ export class GameRuntime {
   private combo = false;
   private starScore = 0;
   private jumpStars: { x: number; got?: boolean }[] = [];
+  // 双人对战（同屏赛跑对决）
+  private progress2 = 0;
+  private speed2 = 0;
+  private winner: 1 | 2 = 1;
   // pop
   private bubbles: { x: number; y: number; r: number; life: number }[] = [];
 
@@ -172,6 +176,12 @@ export class GameRuntime {
   private musicStep = 0;
 
   private keyDown = (e: KeyboardEvent) => {
+    if (this.duel) {
+      // 双人：A/空格 = 左边选手，方向上/回车 = 右边选手
+      if (e.code === 'KeyA' || e.code === 'Space') { e.preventDefault(); this.action(); }
+      else if (e.code === 'ArrowUp' || e.code === 'Enter') { e.preventDefault(); this.action2(); }
+      return;
+    }
     if (e.code === 'ArrowLeft') this.held.left = true;
     else if (e.code === 'ArrowRight') this.held.right = true;
     else if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); this.press('action'); }
@@ -195,6 +205,8 @@ export class GameRuntime {
     private sprites: SpriteSet,
     private hooks: RuntimeHooks,
     private level = 1,
+    /** 双人对决：左右半屏各自点按的同屏赛跑（任意作品皆可切换） */
+    private duel = false,
   ) {
     canvas.width = GAME_W;
     canvas.height = GAME_H;
@@ -260,6 +272,13 @@ export class GameRuntime {
     if (c === 'action') this.action();
   }
   release(c: Control) { this.held[c] = false; }
+
+  /** 双人：右边选手加速 */
+  private action2() {
+    if (this.won) return;
+    this.speed2 += 0.06;
+    sfx.jump();
+  }
 
   private action() {
     if (this.won) return;
@@ -344,6 +363,12 @@ export class GameRuntime {
 
   private pointer(x: number, y: number) {
     if (this.won) return;
+    if (this.duel) {
+      // 左半屏 = 左边选手，右半屏 = 右边选手
+      if (x < GAME_W / 2) this.action();
+      else this.action2();
+      return;
+    }
     if (this.spec.mechanic === 'pop') {
       for (const b of this.bubbles) {
         if (b.life > 0 && Math.hypot(b.x - x, b.y - y) < b.r + 26) {
@@ -379,6 +404,19 @@ export class GameRuntime {
 
     const moveSpeed = (this.spec.effect === 'speed' ? 360 : 280) * dt;
     const m = this.spec.mechanic;
+
+    if (m === 'race' && this.duel) {
+      // 双人对决：两位选手各自拍打各自半屏
+      this.speed = Math.max(0, this.speed - dt * 0.09);
+      this.progress = Math.min(1, this.progress + this.speed * dt);
+      this.speed2 = Math.max(0, this.speed2 - dt * 0.09);
+      this.progress2 = Math.min(1, this.progress2 + this.speed2 * dt);
+      if (this.progress >= 1 || this.progress2 >= 1) {
+        this.winner = this.progress >= 1 ? 1 : 2;
+        this.win();
+      }
+      return;
+    }
 
     if (m === 'race') {
       this.speed = Math.max(0, this.speed - dt * 0.09);
@@ -626,6 +664,13 @@ export class GameRuntime {
       c.moveTo(20, GROUND + 44);
       c.lineTo(GAME_W - 20, GROUND + 44);
       c.stroke();
+      if (this.duel) {
+        // 第二条赛道（右边选手）
+        c.beginPath();
+        c.moveTo(20, GROUND - 66);
+        c.lineTo(GAME_W - 20, GROUND - 66);
+        c.stroke();
+      }
       c.setLineDash([]);
       // 终点旗
       c.strokeStyle = '#413A5C';
@@ -638,9 +683,13 @@ export class GameRuntime {
         c.fillStyle = (i + j) % 2 === 0 ? '#413A5C' : '#fff';
         c.fillRect(GAME_W - 40 + i * 9, GROUND - 66 + j * 9, 9, 9);
       }
-      this.rivals.forEach((r, i) =>
-        this.img(this.sprites.rivals[i], 70 + r.p * (GAME_W - 150), GROUND - 96 - i * 56, 52));
-      for (const d of this.drops) this.img(this.sprites.item, d.x, d.y, 36);
+      if (this.duel) {
+        this.img(this.sprites.rivals[0], 70 + this.progress2 * (GAME_W - 150), GROUND - 100, 64);
+      } else {
+        this.rivals.forEach((r, i) =>
+          this.img(this.sprites.rivals[i], 70 + r.p * (GAME_W - 150), GROUND - 96 - i * 56, 52));
+        for (const d of this.drops) this.img(this.sprites.item, d.x, d.y, 36);
+      }
       hx = this.heroXOnTrack();
       hy = GROUND - 34;
     } else if (m === 'collect' || m === 'dodge') {
@@ -720,21 +769,40 @@ export class GameRuntime {
         c.fillStyle = p.color!;
         c.fillRect(p.x, p.y, p.size, p.size);
       }
-      this.img(this.sprites.hero, GAME_W / 2, GAME_H / 2 - 58, 110);
+      const champ = this.duel && this.winner === 2 ? this.sprites.rivals[0] : this.sprites.hero;
+      this.img(champ, GAME_W / 2, GAME_H / 2 - 58, 110);
       c.fillStyle = this.accent;
       c.font = '44px "ZCOOL KuaiLe", sans-serif';
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      c.fillText('你赢啦！', GAME_W / 2, GAME_H / 2 + 44);
+      c.fillText(this.duel ? `${this.winner === 1 ? '左边' : '右边'}赢啦！` : '你赢啦！', GAME_W / 2, GAME_H / 2 + 44);
       c.font = '22px "ZCOOL KuaiLe", sans-serif';
       c.fillStyle = '#8A7A6E';
-      c.fillText(`第 ${this.level} 关通关！`, GAME_W / 2, GAME_H / 2 + 88);
+      c.fillText(this.duel ? '再来一局！' : `第 ${this.level} 关通关！`, GAME_W / 2, GAME_H / 2 + 88);
     }
   }
 
   private renderHud() {
     const c = this.ctx;
     const m = this.spec.mechanic;
+    if (this.duel) {
+      // 双人：左右两条进度条
+      const bar = (x: number, ratio: number, marker: HTMLImageElement) => {
+        c.fillStyle = 'rgba(255,255,255,0.8)';
+        this.roundRect(x, 14, 320, 26, 13);
+        c.fill();
+        c.strokeStyle = '#413A5C';
+        c.lineWidth = 2.5;
+        this.roundRect(x, 14, 320, 26, 13);
+        c.stroke();
+        c.fillStyle = this.accent;
+        if (ratio > 0.02) { this.roundRect(x + 4, 18, Math.max(16, 312 * ratio), 18, 9); c.fill(); }
+        this.img(marker, x + 4 + Math.max(16, 312 * ratio), 27, 34);
+      };
+      bar(20, Math.min(1, this.progress), this.sprites.hero);
+      bar(GAME_W - 340, Math.min(1, this.progress2), this.sprites.rivals[0]);
+      return;
+    }
     let ratio = 0;
     if (m === 'race') ratio = this.progress;
     else if (m === 'collect' || m === 'pop') ratio = this.score / this.goal;

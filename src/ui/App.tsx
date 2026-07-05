@@ -13,7 +13,9 @@ import { llmReady, normalizeUtterance } from '../app/llm';
 import { record } from '../app/metrics';
 import { checkText, logSafety } from '../app/safety';
 import { loadSpeechPref, setSpeechEnabled, speak, speechEnabled, stopSpeaking } from '../app/speech';
+import type { AccessoryId } from '../art/characters';
 import { buildSiteSpec, buildSpec, controlHint } from '../engine/game';
+import { suggestNext } from '../engine/suggest';
 import {
   applyOption, parseUtterance, pendingDivergence, buildFixDivergence, slotsToJSON,
 } from '../engine/parser';
@@ -192,7 +194,7 @@ export default function App() {
   );
 
   const submitUtterance = useCallback(
-    (text: string) => {
+    (text: string, forceBase?: SlotProfile) => {
       if (!text.trim()) { say(nudgeLine()); return; }
       hear(text);
       // 内容安全过滤（PRD 第 5 节）：温柔引导换主意，并记入安全日志
@@ -209,7 +211,7 @@ export default function App() {
           const normalized = await normalizeUtterance(text, imgCfg);
           if (normalized) input = normalized;
         }
-        const res = parseUtterance(input, iterating ? profile : null);
+        const res = parseUtterance(input, forceBase ?? (iterating ? profile : null));
         setProfile(res.profile);
         setTranslations(res.translations);
         setChanged(res.changed);
@@ -314,6 +316,40 @@ export default function App() {
     setStage((st) => (st.name === 'play' ? { name: 'play', won: true } : st));
     if (profile) say(`${celebrateLine(profile)}${iterateInvite()}`);
   }, [profile, say]);
+
+  // —— 小灵主动提议：作品完成后点燃下一个想法 ——
+  const suggestion = useMemo(
+    () => (stage.name === 'play' && profile ? suggestNext(profile) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stage.name === 'play', profile],
+  );
+  const suggestionShown = useRef<string | null>(null);
+  useEffect(() => {
+    if (stage.name === 'play' && stage.won && suggestion && suggestionShown.current !== suggestion.say) {
+      suggestionShown.current = suggestion.say;
+      record('suggestion_shown');
+    }
+  }, [stage, suggestion]);
+
+  const acceptSuggestion = useCallback((sayText: string) => {
+    if (!profile) return;
+    stopSpeaking();
+    record('suggestion_accept');
+    record('iterate');
+    setIterating(true);
+    submitUtterance(sayText, profile);
+  }, [profile, submitUtterance]);
+
+  // —— 装扮：更新 spec 并写回档案 ——
+  const dressUp = useCallback((acc: AccessoryId | null) => {
+    setSpec((s) => {
+      if (!s) return s;
+      const next = { ...s, accessory: acc };
+      if (workId && profile) saveWork(workId, next.title, profile, next, dialogue, magic.url);
+      setWorks(loadWorks());
+      return next;
+    });
+  }, [dialogue, magic.url, profile, workId]);
 
   // —— ⑤ → ①：继续迭代，带着已有档案回到倾听 ——
   const iterate = useCallback(() => {
@@ -444,18 +480,34 @@ export default function App() {
             <BuildStage profile={profile} onDone={buildDone} />
           )}
           {stage.name === 'play' && spec && spec.type === 'website' && profile && (
-            <SiteStage spec={spec as SiteSpec} profile={profile} onIterate={iterate} onHome={goHome} />
+            <SiteStage
+              spec={spec as SiteSpec}
+              profile={profile}
+              suggestion={suggestion}
+              onDress={dressUp}
+              onSuggest={acceptSuggestion}
+              onIterate={iterate}
+              onHome={goHome}
+            />
           )}
           {stage.name === 'play' && spec && spec.type !== 'website' && (
             <PlayStage
               spec={spec as GameSpec}
               won={stage.won}
+              suggestion={suggestion}
               onWin={gameWon}
               onNextLevel={(level) => {
                 record('replay');
                 setStage({ name: 'play', won: false });
                 say(`第${level}关来啦！会更快更难哦，加油！`);
               }}
+              onDuel={() => {
+                record('duel_start');
+                setStage({ name: 'play', won: false });
+                say('双人对决！左边点左半屏，右边点右半屏，看谁先到终点！');
+              }}
+              onDress={dressUp}
+              onSuggest={acceptSuggestion}
               onIterate={iterate}
               onShare={shareWork}
               onReplay={() => { record('replay'); setStage({ name: 'play', won: false }); }}
