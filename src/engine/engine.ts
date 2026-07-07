@@ -202,7 +202,7 @@ function finishTurn(state: GameState, pack: LifePack, rng: Rng): GameState {
     if ((state.stats[m.stat] ?? 0) >= m.gte) {
       state.milestonesHit.push(m.id)
       applyEffects(state, pack, m.effects ?? [], rng, 'milestone')
-      state.log.push({ turn: state.turn, text: `🏆 ${m.title} —— ${m.text}`, kind: 'milestone' })
+      state.log.push({ turn: state.turn, text: `${m.title} —— ${m.text}`, kind: 'milestone' })
     }
   }
 

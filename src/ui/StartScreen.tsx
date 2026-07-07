@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { LifePack } from '../engine/types'
+import { Icon } from './icons'
 
 export function StartScreen(props: { pack: LifePack; onStart: (characterId: string) => void }) {
   const { pack, onStart } = props
@@ -10,7 +11,7 @@ export function StartScreen(props: { pack: LifePack; onStart: (characterId: stri
   return (
     <div className="screen start-screen">
       <header className="start-hero">
-        <div className="logo">FableUnion</div>
+        <div className="logo">FABLEUNION</div>
         <h1>{pack.name}</h1>
         <p className="tagline">{pack.tagline}</p>
       </header>
@@ -27,7 +28,9 @@ export function StartScreen(props: { pack: LifePack; onStart: (characterId: stri
             disabled={c.locked}
             onClick={() => setSelected(c.id)}
           >
-            <div className="char-icon">{c.icon}</div>
+            <div className="char-avatar">
+              <Icon name={c.icon} size={26} strokeWidth={1.6} />
+            </div>
             <div className="char-name">{c.name}</div>
             <div className="char-tagline">{c.locked ? '即将解锁' : c.tagline}</div>
           </button>
@@ -37,6 +40,24 @@ export function StartScreen(props: { pack: LifePack; onStart: (characterId: stri
       {selectedChar && !selectedChar.locked && (
         <section className="char-desc">
           <p>{selectedChar.desc}</p>
+          <div className="char-stats-preview">
+            {Object.entries(selectedChar.initialStats)
+              .filter(([id]) => {
+                const def = pack.stats.find((s) => s.id === id)
+                return def && !def.hidden && def.max === 100 && id !== 'mood'
+              })
+              .map(([id, v]) => {
+                const def = pack.stats.find((s) => s.id === id)!
+                return (
+                  <div className="preview-row" key={id}>
+                    <span className="preview-label">{def.name}</span>
+                    <div className="bar">
+                      <div className="bar-fill" style={{ width: `${v}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
         </section>
       )}
 

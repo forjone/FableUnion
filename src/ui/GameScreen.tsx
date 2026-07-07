@@ -1,8 +1,31 @@
-import { useMemo, useState } from 'react'
-import type { GameState, LifePack, Rng } from '../engine/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { GameState, LifePack, LogEntry, Milestone, Rng, StatDef } from '../engine/types'
 import { eligibleTasks, endTurn, getEvent, resolveChoice } from '../engine/engine'
 import { evalCondition, describeCondition } from '../engine/conditions'
 import { formatStat } from './format'
+import { Icon } from './icons'
+
+interface Delta {
+  def: StatDef
+  delta: number
+}
+
+function diffStats(pack: LifePack, prev: GameState, next: GameState): Delta[] {
+  const out: Delta[] = []
+  for (const def of pack.stats) {
+    if (def.hidden || def.id === pack.energyStat.id) continue
+    const d = (next.stats[def.id] ?? 0) - (prev.stats[def.id] ?? 0)
+    if (Math.abs(d) >= 0.005) out.push({ def, delta: d })
+  }
+  return out
+}
+
+function formatDelta(def: StatDef, delta: number): string {
+  const sign = delta > 0 ? '+' : '−'
+  return `${sign}${formatStat(def, Math.abs(delta))}`
+}
+
+const POOL_LABEL: Record<string, string> = { daily: '日常', fate: '命运', wing: '风口' }
 
 export function GameScreen(props: {
   pack: LifePack
@@ -12,8 +35,11 @@ export function GameScreen(props: {
 }) {
   const { pack, state, setState, rng } = props
   const [chosen, setChosen] = useState<string[]>([])
+  const [weekReport, setWeekReport] = useState<{ week: number; entries: LogEntry[]; deltas: Delta[] } | null>(null)
+  const [eventResult, setEventResult] = useState<{ title: string; pool: string; text: string; deltas: Delta[] } | null>(null)
+  const [milestoneShow, setMilestoneShow] = useState<Milestone | null>(null)
+  const milestoneSeen = useRef<string[]>(state.milestonesHit)
 
-  const visibleStats = pack.stats.filter((s) => !s.hidden)
   const tasks = useMemo(() => eligibleTasks(state, pack), [state, pack])
   const energy = state.stats[pack.energyStat.id] ?? 0
   const spent = chosen.reduce(
@@ -21,6 +47,17 @@ export function GameScreen(props: {
     0,
   )
   const remaining = energy - spent
+
+  // 里程碑达成检测 → 庆祝演出（等结算/事件结果关闭后再放）
+  useEffect(() => {
+    if (weekReport || eventResult || milestoneShow) return
+    const fresh = state.milestonesHit.find((id) => !milestoneSeen.current.includes(id))
+    if (fresh) {
+      const m = pack.milestones.find((x) => x.id === fresh)
+      if (m) setMilestoneShow(m)
+      milestoneSeen.current = [...milestoneSeen.current, fresh]
+    }
+  }, [state.milestonesHit, weekReport, eventResult, milestoneShow, pack.milestones])
 
   const toggleTask = (id: string) => {
     if (chosen.includes(id)) {
@@ -32,27 +69,76 @@ export function GameScreen(props: {
   }
 
   const submitWeek = () => {
-    setState(endTurn(state, pack, chosen, rng))
+    const prev = state
+    const next = endTurn(prev, pack, chosen, rng)
+    const entries = next.log.slice(prev.log.length)
+    setWeekReport({ week: prev.turn, entries, deltas: diffStats(pack, prev, next) })
+    setState(next)
     setChosen([])
+  }
+
+  const pickChoice = (index: number) => {
+    const prev = state
+    const pending = prev.pendingEvents[0]
+    if (!pending) return
+    const event = getEvent(pack, pending.eventId)
+    const next = resolveChoice(prev, pack, index, rng)
+    const text = pending.missed
+      ? '机会从指缝间溜走了。'
+      : event.choices[index]?.resultText ?? ''
+    setEventResult({ title: event.title, pool: event.pool, text, deltas: diffStats(pack, prev, next) })
+    setState(next)
   }
 
   const pending = state.pendingEvents[0]
   const pendingEvent = pending ? getEvent(pack, pending.eventId) : null
+  const overlayOpen = !!weekReport || !!eventResult || !!milestoneShow
+
+  const mood = state.stats.mood ?? 0
+  const skillDefs = pack.stats.filter((s) => !s.hidden && s.max === 100 && s.id !== 'mood')
 
   return (
     <div className="screen game-screen">
       <header className="hud">
-        <div className="week">
-          第 {state.turn} {pack.turnUnit}
-          <span className="week-total"> / {pack.maxTurns}</span>
+        <div className="hud-top">
+          <div className="week">
+            第 {state.turn}
+            <span className="week-unit">{pack.turnUnit}</span>
+            <span className="week-total">/ {pack.maxTurns}</span>
+          </div>
+          <div className="hud-money">
+            {pack.stats
+              .filter((s) => s.format === 'money' || s.format === 'decimal')
+              .map((s) => (
+                <span className="stat" key={s.id} title={s.name}>
+                  <Icon name={s.icon} size={14} />
+                  <span className="stat-value">{formatStat(s, state.stats[s.id] ?? 0)}</span>
+                </span>
+              ))}
+            <Sparkline data={state.chartHistory} />
+          </div>
         </div>
-        <div className="stats">
-          {visibleStats.map((s) => (
-            <div className="stat" key={s.id} title={s.name}>
-              <span className="stat-icon">{s.icon}</span>
-              <span className="stat-value">{formatStat(s, state.stats[s.id] ?? 0)}</span>
+        <div className="hud-bars">
+          <div className="mood-block" title={`心态 ${Math.round(mood)}`}>
+            <Icon name="mood" size={13} className={mood <= 25 ? 'danger' : ''} />
+            <div className="bar">
+              <div
+                className={'bar-fill mood-fill' + (mood <= 25 ? ' danger' : '')}
+                style={{ width: `${mood}%` }}
+              />
+            </div>
+          </div>
+          {skillDefs.map((s) => (
+            <div className="skill-block" key={s.id} title={`${s.name} ${Math.round(state.stats[s.id] ?? 0)}`}>
+              <span className="skill-label">{s.name}</span>
+              <div className="bar">
+                <div className="bar-fill" style={{ width: `${state.stats[s.id] ?? 0}%` }} />
+              </div>
             </div>
           ))}
+        </div>
+        <div className="turn-progress">
+          <div className="turn-progress-fill" style={{ width: `${(state.turn / pack.maxTurns) * 100}%` }} />
         </div>
       </header>
 
@@ -60,14 +146,22 @@ export function GameScreen(props: {
         <section className="plan">
           <div className="plan-header">
             <h2>本{pack.turnUnit}安排</h2>
-            <div className="energy-budget">
-              ⚡ 剩余精力 <b>{remaining}</b> / {energy}
+            <div className="energy-pips" title={`精力 ${remaining}/${energy}`}>
+              <Icon name="energy" size={13} />
+              {Array.from({ length: pack.energyStat.perTurn }).map((_, i) => (
+                <span key={i} className={'pip' + (i < remaining ? ' on' : i < energy ? ' spent' : '')} />
+              ))}
             </div>
           </div>
           <div className="task-grid">
             {tasks.map((t) => {
               const selected = chosen.includes(t.id)
               const affordable = selected || t.energyCost <= remaining
+              const p = Math.min(
+                0.98,
+                t.baseSuccess +
+                  (t.successBonus ?? []).reduce((s, b) => s + (state.stats[b.stat] ?? 0) * b.factor, 0),
+              )
               return (
                 <button
                   key={t.id}
@@ -76,28 +170,64 @@ export function GameScreen(props: {
                   disabled={!affordable && !selected}
                 >
                   <div className="task-top">
-                    <span className="task-icon">{t.icon}</span>
+                    <span className="task-icon">
+                      <Icon name={t.icon} size={16} />
+                    </span>
                     <span className="task-name">{t.name}</span>
-                    <span className="task-cost">⚡{t.energyCost}</span>
+                    <span className="task-cost">
+                      {Array.from({ length: t.energyCost }).map((_, i) => (
+                        <span key={i} className="cost-pip" />
+                      ))}
+                    </span>
                   </div>
                   <div className="task-desc">{t.desc}</div>
+                  {t.baseSuccess < 1 && (
+                    <div className={'task-odds' + (p < 0.45 ? ' risky' : '')}>成功率 {Math.round(p * 100)}%</div>
+                  )}
                 </button>
               )
             })}
           </div>
           <button className="btn primary big" onClick={submitWeek}>
-            {chosen.length > 0 ? `执行安排，结束本${pack.turnUnit}` : `什么都不做，混过这一${pack.turnUnit}`}
+            {chosen.length > 0
+              ? `执行 ${chosen.length} 项安排，结束本${pack.turnUnit}`
+              : `什么都不做，混过这一${pack.turnUnit}`}
           </button>
         </section>
       )}
 
-      {state.phase === 'event' && pendingEvent && pending && (
+      {/* 周结算 */}
+      {weekReport && (
+        <div className="modal-backdrop" onClick={() => setWeekReport(null)}>
+          <div className="event-modal report-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="event-pool-tag">第 {weekReport.week} {pack.turnUnit} · 结算</div>
+            <ul className="report-list">
+              {weekReport.entries
+                .filter((e) => e.kind === 'task')
+                .map((e, i) => (
+                  <li key={i} className="report-line" style={{ animationDelay: `${i * 90}ms` }}>
+                    {e.text}
+                  </li>
+                ))}
+              {weekReport.entries.filter((e) => e.kind === 'task').length === 0 && (
+                <li className="report-line muted">这一{pack.turnUnit}你什么都没做。时间不会等人。</li>
+              )}
+            </ul>
+            <DeltaChips deltas={weekReport.deltas} />
+            <button className="btn primary big" onClick={() => setWeekReport(null)}>
+              继续
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 事件：提问阶段 */}
+      {!overlayOpen && state.phase === 'event' && pendingEvent && pending && (
         <div className="modal-backdrop">
           <div className={'event-modal pool-' + pendingEvent.pool}>
             <div className="event-pool-tag">
-              {pendingEvent.pool === 'daily' && '日常'}
-              {pendingEvent.pool === 'fate' && '命运'}
-              {pendingEvent.pool === 'wing' && '✨ 风口'}
+              <span className={'pool-dot ' + pendingEvent.pool} />
+              {POOL_LABEL[pendingEvent.pool]}
             </div>
             <h2>{pendingEvent.title}</h2>
             <p className="event-text">
@@ -107,10 +237,7 @@ export function GameScreen(props: {
             </p>
             <div className="choices">
               {pending.missed ? (
-                <button
-                  className="btn choice"
-                  onClick={() => setState(resolveChoice(state, pack, -1, rng))}
-                >
+                <button className="btn choice" onClick={() => pickChoice(-1)}>
                   唉……
                 </button>
               ) : (
@@ -121,12 +248,12 @@ export function GameScreen(props: {
                       key={i}
                       className={'btn choice' + (ok ? '' : ' disabled')}
                       disabled={!ok}
-                      onClick={() => setState(resolveChoice(state, pack, i, rng))}
+                      onClick={() => pickChoice(i)}
                     >
                       {c.text}
                       {!ok && c.conditions && (
                         <span className="choice-req">
-                          （{describeCondition(c.conditions, (id) => pack.stats.find((s) => s.id === id)?.name ?? id)}）
+                          需要：{describeCondition(c.conditions, (id) => pack.stats.find((s) => s.id === id)?.name ?? id)}
                         </span>
                       )}
                     </button>
@@ -138,11 +265,46 @@ export function GameScreen(props: {
         </div>
       )}
 
+      {/* 事件：结果阶段 */}
+      {eventResult && (
+        <div className="modal-backdrop" onClick={() => setEventResult(null)}>
+          <div className={'event-modal result-modal pool-' + eventResult.pool} onClick={(e) => e.stopPropagation()}>
+            <div className="event-pool-tag">
+              <span className={'pool-dot ' + eventResult.pool} />
+              {eventResult.title}
+            </div>
+            <p className="event-text result-text">{eventResult.text}</p>
+            <DeltaChips deltas={eventResult.deltas} />
+            <button className="btn primary big" onClick={() => setEventResult(null)}>
+              继续
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 里程碑演出 */}
+      {milestoneShow && (
+        <div className="modal-backdrop milestone-backdrop" onClick={() => setMilestoneShow(null)}>
+          <div className="milestone-splash" onClick={(e) => e.stopPropagation()}>
+            <div className="milestone-rays" />
+            <div className="milestone-trophy">
+              <Icon name="trophy" size={56} strokeWidth={1.5} />
+            </div>
+            <div className="milestone-kicker">成就达成</div>
+            <h2 className="milestone-title">{milestoneShow.title}</h2>
+            <p className="milestone-text">{milestoneShow.text}</p>
+            <button className="btn primary big" onClick={() => setMilestoneShow(null)}>
+              继续前进
+            </button>
+          </div>
+        </div>
+      )}
+
       <section className="journal">
         <h2>心路历程</h2>
         <ul>
           {[...state.log].reverse().slice(0, 30).map((entry, i) => (
-            <li key={i} className={'log-' + entry.kind}>
+            <li key={state.log.length - i} className={'log-' + entry.kind}>
               <span className="log-week">{entry.turn}{pack.turnUnit}</span>
               <span className="log-text">{entry.text}</span>
             </li>
@@ -150,5 +312,39 @@ export function GameScreen(props: {
         </ul>
       </section>
     </div>
+  )
+}
+
+function DeltaChips(props: { deltas: Delta[] }) {
+  if (props.deltas.length === 0) return null
+  return (
+    <div className="delta-chips">
+      {props.deltas.map((d, i) => (
+        <span
+          key={d.def.id}
+          className={'delta-chip ' + (d.delta > 0 ? 'up' : 'down')}
+          style={{ animationDelay: `${i * 70}ms` }}
+        >
+          <Icon name={d.def.icon} size={12} />
+          {formatDelta(d.def, d.delta)}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function Sparkline(props: { data: number[] }) {
+  const data = props.data.slice(-32)
+  if (data.length < 2) return null
+  const max = Math.max(...data, 0.01)
+  const w = 64
+  const h = 20
+  const points = data
+    .map((v, i) => `${(i / (data.length - 1)) * w},${h - 2 - (v / max) * (h - 4)}`)
+    .join(' ')
+  return (
+    <svg className="sparkline" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
   )
 }

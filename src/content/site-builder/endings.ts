@@ -9,7 +9,7 @@ export const endings: Ending[] = [
   {
     id: 'soldSite',
     title: '卖站上岸',
-    icon: '⛵',
+    icon: 'flag',
     grade: 'S',
     priority: 10,
     when: 'immediate',
@@ -19,7 +19,7 @@ export const endings: Ending[] = [
   {
     id: 'legend',
     title: '传说中的那个人',
-    icon: '👑',
+    icon: 'sparkle',
     grade: 'S',
     priority: 20,
     when: 'immediate',
@@ -29,7 +29,7 @@ export const endings: Ending[] = [
   {
     id: 'backToJob',
     title: '重返职场，但你已不同',
-    icon: '🏢',
+    icon: 'briefcase',
     grade: 'B',
     priority: 30,
     when: 'immediate',
@@ -39,7 +39,7 @@ export const endings: Ending[] = [
   {
     id: 'brokeButSkilled',
     title: '输了钱包，赢了本事',
-    icon: '🎓',
+    icon: 'book',
     grade: 'C',
     priority: 40,
     when: 'immediate',
@@ -54,7 +54,7 @@ export const endings: Ending[] = [
   {
     id: 'broke',
     title: '弹尽粮绝',
-    icon: '🕳️',
+    icon: 'skull',
     grade: 'D',
     priority: 41,
     when: 'immediate',
@@ -64,7 +64,7 @@ export const endings: Ending[] = [
   {
     id: 'quitBeforeDawn',
     title: '在黎明前放弃',
-    icon: '🌘',
+    icon: 'moon',
     grade: 'C',
     priority: 50,
     when: 'immediate',
@@ -74,7 +74,7 @@ export const endings: Ending[] = [
   {
     id: 'burnout',
     title: '心态崩了',
-    icon: '💔',
+    icon: 'mood',
     grade: 'D',
     priority: 51,
     when: 'immediate',
@@ -86,7 +86,7 @@ export const endings: Ending[] = [
   {
     id: 'salaryFree',
     title: '工资自由',
-    icon: '🏝️',
+    icon: 'income',
     grade: 'A',
     priority: 100,
     when: 'final',
@@ -96,7 +96,7 @@ export const endings: Ending[] = [
   {
     id: 'steadyTen',
     title: '十刀俱乐部',
-    icon: '🧋',
+    icon: 'trophy',
     grade: 'A',
     priority: 110,
     when: 'final',
@@ -106,7 +106,7 @@ export const endings: Ending[] = [
   {
     id: 'oneDollarLine',
     title: '日入一刀，人生分界',
-    icon: '🪙',
+    icon: 'cash',
     grade: 'B',
     priority: 120,
     when: 'final',
@@ -116,7 +116,7 @@ export const endings: Ending[] = [
   {
     id: 'glimmer',
     title: '微光',
-    icon: '🕯️',
+    icon: 'sparkle',
     grade: 'C',
     priority: 130,
     when: 'final',
@@ -126,7 +126,7 @@ export const endings: Ending[] = [
   {
     id: 'expensiveLesson',
     title: '两年学费',
-    icon: '📖',
+    icon: 'book',
     grade: 'C',
     priority: 140,
     when: 'final',
@@ -136,7 +136,7 @@ export const endings: Ending[] = [
   {
     id: 'longDream',
     title: '一场大梦',
-    icon: '🛌',
+    icon: 'moon',
     grade: 'D',
     priority: 150,
     when: 'final',

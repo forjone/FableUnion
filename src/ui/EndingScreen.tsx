@@ -34,9 +34,10 @@ export function EndingScreen(props: {
 
   return (
     <div className="screen ending-screen">
-      <h1 className="ending-headline">
-        {ending.icon} {ending.title}
-      </h1>
+      <div className="ending-head">
+        <span className={'grade-medal grade-' + ending.grade}>{ending.grade}</span>
+        <h1 className="ending-headline">{ending.title}</h1>
+      </div>
       <div ref={holderRef} className="ending-card-holder" />
       <div className="ending-actions">
         <button className="btn primary big" onClick={download}>

@@ -1,15 +1,15 @@
 import type { Character, Effect, Milestone, StatDef, Task } from '../../engine/types'
 
 export const stats: StatDef[] = [
-  { id: 'cash', name: '资金', icon: '💰', format: 'money', unit: '¥' },
-  { id: 'energy', name: '精力', icon: '⚡', min: 0, max: 10, format: 'int' },
-  { id: 'mood', name: '心态', icon: '❤️', min: 0, max: 100, format: 'int' },
-  { id: 'income', name: '日收入', icon: '💵', min: 0, format: 'decimal', unit: '$' },
-  { id: 'dev', name: '编程', icon: '💻', min: 0, max: 100, format: 'int' },
-  { id: 'seo', name: 'SEO', icon: '🔍', min: 0, max: 100, format: 'int' },
-  { id: 'eng', name: '英语', icon: '🗣️', min: 0, max: 100, format: 'int' },
-  { id: 'product', name: '产品', icon: '📦', min: 0, max: 100, format: 'int' },
-  { id: 'polish', name: '打磨度', icon: '✨', min: 0, hidden: true },
+  { id: 'cash', name: '资金', icon: 'cash', format: 'money', unit: '¥' },
+  { id: 'energy', name: '精力', icon: 'energy', min: 0, max: 10, format: 'int' },
+  { id: 'mood', name: '心态', icon: 'mood', min: 0, max: 100, format: 'int' },
+  { id: 'income', name: '日收入', icon: 'income', min: 0, format: 'decimal', unit: '$' },
+  { id: 'dev', name: '编程', icon: 'dev', min: 0, max: 100, format: 'int' },
+  { id: 'seo', name: 'SEO', icon: 'seo', min: 0, max: 100, format: 'int' },
+  { id: 'eng', name: '英语', icon: 'eng', min: 0, max: 100, format: 'int' },
+  { id: 'product', name: '产品', icon: 'product', min: 0, max: 100, format: 'int' },
+  { id: 'polish', name: '打磨度', icon: 'sparkle', min: 0, hidden: true },
 ]
 
 /** 每周结算：收入入账（$→¥ 按 7 汇率 × 7 天 = ×49），生活开销 ¥800 */
@@ -22,7 +22,7 @@ export const characters: Character[] = [
   {
     id: 'programmer',
     name: '大厂裸辞程序员',
-    icon: '🧑‍💻',
+    icon: 'dev',
     tagline: '存款在倒计时，梦想在跑马灯。',
     desc: '干了七年，P6+。上周提了离职，HR 问你想清楚没有。你有一笔存款、一身代码功夫，和一个「做个自己的产品」的执念。',
     initialStats: { cash: 30000, mood: 70, income: 0, dev: 65, seo: 10, eng: 40, product: 30 },
@@ -30,7 +30,7 @@ export const characters: Character[] = [
   {
     id: 'mom',
     name: '时间管理宝妈',
-    icon: '👩‍🍼',
+    icon: 'mood',
     tagline: '每天真正属于自己的时间，是娃睡着以后。',
     desc: '（即将解锁）',
     initialStats: {},
@@ -39,7 +39,7 @@ export const characters: Character[] = [
   {
     id: 'student',
     name: '在校学生党',
-    icon: '🎒',
+    icon: 'book',
     tagline: '没钱，但有的是时间和白嫖额度。',
     desc: '（即将解锁）',
     initialStats: {},
@@ -48,7 +48,7 @@ export const characters: Character[] = [
   {
     id: 'smalltown',
     name: '五线小城青年',
-    icon: '🚲',
+    icon: 'compass',
     tagline: '这座城市没人聊出海，所以你只能一个人先出发。',
     desc: '（即将解锁）',
     initialStats: {},
@@ -60,7 +60,7 @@ export const tasks: Task[] = [
   {
     id: 'research',
     name: '需求分析',
-    icon: '📊',
+    icon: 'chart',
     desc: '刷论坛、看搜索词、翻竞品，寻找值得做的需求。做过需求分析的人，才接得住风口。',
     energyCost: 2,
     baseSuccess: 1,
@@ -72,7 +72,7 @@ export const tasks: Task[] = [
   {
     id: 'keyword',
     name: '关键词调研',
-    icon: '🔑',
+    icon: 'key',
     desc: '用工具挖长尾词，找竞争低、流量稳的切入点。上站前的必修课。',
     energyCost: 2,
     baseSuccess: 1,
@@ -84,7 +84,7 @@ export const tasks: Task[] = [
   {
     id: 'launch',
     name: '上站！',
-    icon: '🚀',
+    icon: 'rocket',
     desc: '买域名、搭站、提交收录。从这一刻起，你在互联网上有了一块自己的地。',
     energyCost: 4,
     once: true,
@@ -103,7 +103,7 @@ export const tasks: Task[] = [
   {
     id: 'content',
     name: '写内容',
-    icon: '✍️',
+    icon: 'pen',
     desc: '围绕关键词持续产出内容，喂饱搜索引擎。',
     energyCost: 3,
     conditions: { flag: 'siteLive', is: true },
@@ -121,7 +121,7 @@ export const tasks: Task[] = [
   {
     id: 'backlink',
     name: '加外链',
-    icon: '🔗',
+    icon: 'link',
     desc: '给站长们发邮件求外链。被拒是常态，脸皮是耗材。',
     energyCost: 2,
     conditions: { flag: 'siteLive', is: true },
@@ -142,7 +142,7 @@ export const tasks: Task[] = [
   {
     id: 'adsense',
     name: '接入广告',
-    icon: '🪙',
+    icon: 'card',
     desc: '申请 AdSense，让流量开始变成钱。',
     energyCost: 2,
     cooldown: 2,
@@ -160,7 +160,7 @@ export const tasks: Task[] = [
   {
     id: 'polish',
     name: '打磨产品',
-    icon: '🛠️',
+    icon: 'wrench',
     desc: '改交互、提速度、抠细节。打磨过的产品，才配得上被大 V 看见。',
     energyCost: 3,
     conditions: { flag: 'siteLive', is: true },
@@ -173,7 +173,7 @@ export const tasks: Task[] = [
   {
     id: 'producthunt',
     name: '发布 Product Hunt',
-    icon: '🐱',
+    icon: 'megaphone',
     desc: '一年只有一次首发机会，冲一波海外曝光。',
     energyCost: 3,
     once: true,
@@ -192,7 +192,7 @@ export const tasks: Task[] = [
   {
     id: 'freelance',
     name: '接私活',
-    icon: '🧾',
+    icon: 'briefcase',
     desc: '用老本行换现金流，给梦想续命。',
     energyCost: 3,
     cooldown: 2,
@@ -205,7 +205,7 @@ export const tasks: Task[] = [
   {
     id: 'learnEng',
     name: '练英语',
-    icon: '🗣️',
+    icon: 'eng',
     desc: '出海人的第二母语,外链邮件和老外用户都靠它。',
     energyCost: 2,
     baseSuccess: 1,
@@ -217,7 +217,7 @@ export const tasks: Task[] = [
   {
     id: 'learnSeo',
     name: '研究 SEO',
-    icon: '📚',
+    icon: 'book',
     desc: '算法在变，认知要跟上。',
     energyCost: 2,
     baseSuccess: 1,
@@ -229,7 +229,7 @@ export const tasks: Task[] = [
   {
     id: 'rest',
     name: '休息充电',
-    icon: '🌿',
+    icon: 'moon',
     desc: '死磕不是唯一的路。会休息的人才走得远。',
     energyCost: 2,
     baseSuccess: 1,
