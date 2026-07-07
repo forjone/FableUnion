@@ -143,11 +143,19 @@ function Face(props: { emotion: Emotion }) {
   )
 }
 
-export function Buddy(props: { emotion: Emotion; siteLive: boolean; working: boolean }) {
+export function Buddy(props: {
+  emotion: Emotion
+  siteLive: boolean
+  working: boolean
+  /** 房间等级：随收入梯度升级陈设（0 起步 / 1 十刀 / 2 百刀） */
+  tier?: number
+}) {
   const { emotion, siteLive, working } = props
+  const tier = props.tier ?? 0
   return (
     <svg
       className="buddy-svg"
+      xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 210 150"
       role="img"
       aria-label={`你的小人此刻的情绪：${EMOTION_LABEL[emotion]}`}
@@ -190,6 +198,40 @@ export function Buddy(props: { emotion: Emotion; siteLive: boolean; working: boo
         />
         <rect x="140" y="94" width="42" height="3" rx="1.5" fill="#454e61" />
       </g>
+      {/* 房间升级陈设 */}
+      {tier >= 1 && (
+        <g>
+          {/* 第二块显示器 */}
+          <rect x="178" y="72" width="4" height="22" rx="1" fill="#333c4e" />
+          <rect x="168" y="64" width="24" height="17" rx="2" fill="#232c3d" stroke="#3a4356" strokeWidth="1.2" />
+          <polyline points="171,76 175,72 179,74 183,68 189,70" stroke="#7ee787" strokeWidth="1.3" fill="none" />
+          {/* 墙上海报 */}
+          <rect x="150" y="22" width="30" height="22" rx="2" fill="none" stroke="#3a4356" strokeWidth="1.4" />
+          <path d="M155 38 l6 -7 4 4 5 -6 5 5" stroke="#f5a623" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+        </g>
+      )}
+      {tier >= 2 && (
+        <g>
+          {/* 奖杯架 */}
+          <rect x="86" y="24" width="44" height="3" rx="1.5" fill="#3b4150" />
+          <g stroke="#f5c518" strokeWidth="1.3" fill="none" strokeLinecap="round">
+            <path d="M96 24 v-3 M92.5 15 h7 v4 a3.5 3.5 0 0 1 -7 0 z" />
+            <path d="M114 24 v-3 M110.5 15 h7 v4 a3.5 3.5 0 0 1 -7 0 z" />
+          </g>
+          {/* 窗外城市天际线 */}
+          <g fill="#26314a">
+            <rect x="19" y="42" width="6" height="13" />
+            <rect x="27" y="38" width="7" height="17" />
+            <rect x="42" y="44" width="6" height="11" />
+            <rect x="50" y="40" width="8" height="15" />
+          </g>
+          <g fill="#f5c518" opacity="0.7">
+            <rect x="29" y="41" width="1.4" height="1.4" />
+            <rect x="32" y="45" width="1.4" height="1.4" />
+            <rect x="52" y="43" width="1.4" height="1.4" />
+          </g>
+        </g>
+      )}
       {/* 马克杯 */}
       <g>
         <rect x="122" y="86" width="9" height="8" rx="1.5" fill="#8a5a44" />

@@ -10,10 +10,23 @@
 
 ```bash
 npm install
-npm run dev      # 本地开发
-npm test         # 引擎单测 + 蒙特卡洛数值平衡模拟
-npm run build    # 生产构建
+npm run dev       # 本地开发
+npm test          # 引擎单测 + 蒙特卡洛数值平衡模拟
+npm run build     # 生产构建
+npm run test:e2e  # 真实浏览器端到端冒烟（先 build；可用 FABLE_CHROME 指定浏览器）
 ```
+
+推送到 `main` 后 CI 自动构建并发布到 GitHub Pages（需在仓库 Settings → Pages 将 Source 设为 GitHub Actions）。
+
+## 玩法特性
+
+- 4 个可玩角色（3 个通过元进度解锁），各有专属事件线、精力规则与生活成本
+- 100+ 张事件卡：日常 / 命运 / 风口三层卡池，风口需要前置积累才接得住
+- 小人系统：喜怒哀乐悲五态可视，房间陈设随收入梯度升级
+- 周结算、事件结果、里程碑全屏演出、WebAudio 合成音效
+- 结局图鉴 / 成就图鉴 / 本地最佳战绩榜，驱动重开
+- Canvas 结局分享卡（含小人的最终状态与收入曲线）
+- 新手引导、设置（音效开关 / 放弃本局）、本地存档续玩（带版本号）
 
 ## 架构
 

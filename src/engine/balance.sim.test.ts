@@ -9,10 +9,10 @@ import type { GameState, Rng } from './types'
  * 蒙特卡洛平衡模拟：用随机贪心策略跑完整人生，检查结局分布是否健康。
  * 调数值时跑这个测试观察分布变化。
  */
-function playOneLife(seed: number): GameState {
+function playOneLife(seed: number, characterId = 'programmer'): GameState {
   const pack = siteBuilderPack
   const rng: Rng = createRng(seed)
-  let s = createGame(pack, 'programmer')
+  let s = createGame(pack, characterId)
   let guard = 0
   while (s.phase !== 'ended' && guard++ < 2000) {
     if (s.phase === 'plan') {
@@ -69,5 +69,20 @@ describe('balance simulation (site-builder pack)', () => {
     // 随机乱玩不应该轻易通向最高成就
     const legend = endings.get('legend') ?? 0
     expect(legend / RUNS).toBeLessThan(0.1)
+  })
+
+  it('every character can finish a life and earn the first cent', () => {
+    for (const characterId of siteBuilderPack.characters.map((c) => c.id)) {
+      const RUNS = 40
+      let firstCent = 0
+      for (let i = 0; i < RUNS; i++) {
+        const s = playOneLife(5000 + i * 13, characterId)
+        expect(s.phase).toBe('ended')
+        expect(s.ending).not.toBeNull()
+        if (s.milestonesHit.includes('firstCent')) firstCent++
+      }
+      // 每个角色随机乱玩也应该大概率跑通第一笔收入
+      expect(firstCent / RUNS, characterId).toBeGreaterThan(0.4)
+    }
   })
 })

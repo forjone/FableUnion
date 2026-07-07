@@ -5,6 +5,24 @@ import { evalCondition, describeCondition } from '../engine/conditions'
 import { formatStat } from './format'
 import { Icon } from './icons'
 import { Buddy, baseEmotion, pickQuip, EMOTION_LABEL, type Emotion } from './Buddy'
+import { playSfx, soundEnabled, setSoundEnabled } from './sound'
+
+const ONBOARD_KEY = 'fableunion.onboarded'
+
+const ONBOARD_SLIDES = [
+  {
+    title: '每周，分配你的精力',
+    text: '这是你的一段人生，以周为单位推进。每周有限的精力点，花在写内容、加外链还是接私活续命，由你决定。带成功率的任务会随技能成长变得更稳。',
+  },
+  {
+    title: '命运会来敲门',
+    text: '每周会发生事件：灰点是日常，紫点是命运抉择，金点是稀有「风口」——风口需要平时的积累才接得住，错过了它会明确告诉你为什么。',
+  },
+  {
+    title: '照顾好那个小人',
+    text: '资金归零或心态崩溃，这段人生就提前落幕。屏幕上的小人就是你：他的表情，就是你此刻的心路历程。目标不止是日入千刀——每种结局都是一种人生。',
+  },
+]
 
 interface Delta {
   def: StatDef
@@ -33,14 +51,21 @@ export function GameScreen(props: {
   state: GameState
   setState: (s: GameState) => void
   rng: Rng
+  onAbandon: () => void
 }) {
-  const { pack, state, setState, rng } = props
+  const { pack, state, setState, rng, onAbandon } = props
   const [chosen, setChosen] = useState<string[]>([])
   const [weekReport, setWeekReport] = useState<{ week: number; entries: LogEntry[]; deltas: Delta[] } | null>(null)
   const [eventResult, setEventResult] = useState<{ title: string; pool: string; text: string; deltas: Delta[] } | null>(null)
   const [milestoneShow, setMilestoneShow] = useState<Milestone | null>(null)
   const milestoneSeen = useRef<string[]>(state.milestonesHit)
   const [burst, setBurst] = useState<{ emotion: Emotion; text: string; key: number } | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirmAbandon, setConfirmAbandon] = useState(false)
+  const [sound, setSound] = useState(soundEnabled())
+  const [onboardStep, setOnboardStep] = useState(() =>
+    localStorage.getItem(ONBOARD_KEY) ? -1 : 0,
+  )
 
   // 情绪爆发：3.4 秒后回落到常态
   useEffect(() => {
@@ -56,6 +81,7 @@ export function GameScreen(props: {
     else if (moodDelta <= -6) emotion = 'grief'
     else if (moodDelta < 0) emotion = 'anger'
     if (emotion) {
+      playSfx(emotion === 'joy' ? 'good' : 'bad')
       const key = Date.now()
       setBurst({ emotion, text: pickQuip(emotion, key), key })
     }
@@ -75,21 +101,36 @@ export function GameScreen(props: {
     const fresh = state.milestonesHit.find((id) => !milestoneSeen.current.includes(id))
     if (fresh) {
       const m = pack.milestones.find((x) => x.id === fresh)
-      if (m) setMilestoneShow(m)
+      if (m) {
+        setMilestoneShow(m)
+        playSfx('milestone')
+      }
       milestoneSeen.current = [...milestoneSeen.current, fresh]
     }
   }, [state.milestonesHit, weekReport, eventResult, milestoneShow, pack.milestones])
+
+  // 风口降临音效
+  const pendingPool = state.pendingEvents[0]
+    ? getEvent(pack, state.pendingEvents[0].eventId).pool
+    : null
+  useEffect(() => {
+    if (pendingPool === 'wing' && !weekReport && !eventResult) playSfx('wing')
+  }, [pendingPool, weekReport, eventResult])
 
   const toggleTask = (id: string) => {
     if (chosen.includes(id)) {
       setChosen(chosen.filter((x) => x !== id))
     } else {
       const cost = pack.tasks.find((t) => t.id === id)?.energyCost ?? 0
-      if (cost <= remaining) setChosen([...chosen, id])
+      if (cost <= remaining) {
+        playSfx('tap')
+        setChosen([...chosen, id])
+      }
     }
   }
 
   const submitWeek = () => {
+    playSfx('confirm')
     const prev = state
     const next = endTurn(prev, pack, chosen, rng)
     const entries = next.log.slice(prev.log.length)
@@ -148,6 +189,9 @@ export function GameScreen(props: {
                 </span>
               ))}
             <Sparkline data={state.chartHistory} />
+            <button className="icon-btn" title="设置" onClick={() => setMenuOpen(true)}>
+              <Icon name="settings" size={15} />
+            </button>
           </div>
         </div>
         <div className="hud-bars">
@@ -180,6 +224,7 @@ export function GameScreen(props: {
             emotion={displayEmotion}
             siteLive={!!state.flags.siteLive}
             working={state.phase === 'plan' && chosen.length > 0}
+            tier={(state.stats.income ?? 0) >= 100 ? 2 : (state.stats.income ?? 0) >= 10 ? 1 : 0}
           />
         </div>
         <div className="buddy-side">
@@ -349,6 +394,70 @@ export function GameScreen(props: {
             <p className="milestone-text">{milestoneShow.text}</p>
             <button className="btn primary big" onClick={() => setMilestoneShow(null)}>
               继续前进
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 设置菜单 */}
+      {menuOpen && (
+        <div className="modal-backdrop" onClick={() => { setMenuOpen(false); setConfirmAbandon(false) }}>
+          <div className="event-modal settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="event-pool-tag">设置</div>
+            <button
+              className="btn big"
+              onClick={() => {
+                const next = !sound
+                setSoundEnabled(next)
+                setSound(next)
+                if (next) playSfx('confirm')
+              }}
+            >
+              音效：{sound ? '开' : '关'}
+            </button>
+            {!confirmAbandon ? (
+              <button className="btn big danger-btn" onClick={() => setConfirmAbandon(true)}>
+                放弃这段人生
+              </button>
+            ) : (
+              <button className="btn big danger-btn confirm" onClick={onAbandon}>
+                确定放弃？这一局不会留下任何记录
+              </button>
+            )}
+            <button className="btn primary big" onClick={() => { setMenuOpen(false); setConfirmAbandon(false) }}>
+              继续游戏
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 新手引导 */}
+      {onboardStep >= 0 && (
+        <div className="modal-backdrop onboard-backdrop">
+          <div className="event-modal onboard-modal">
+            <div className="event-pool-tag">
+              开始之前 · {onboardStep + 1}/{ONBOARD_SLIDES.length}
+            </div>
+            <h2>{ONBOARD_SLIDES[onboardStep].title}</h2>
+            <p className="event-text">{ONBOARD_SLIDES[onboardStep].text}</p>
+            <div className="onboard-dots">
+              {ONBOARD_SLIDES.map((_, i) => (
+                <span key={i} className={'pool-dot' + (i === onboardStep ? ' wing' : '')} />
+              ))}
+            </div>
+            <button
+              className="btn primary big"
+              onClick={() => {
+                if (onboardStep + 1 < ONBOARD_SLIDES.length) {
+                  setOnboardStep(onboardStep + 1)
+                } else {
+                  localStorage.setItem(ONBOARD_KEY, '1')
+                  setOnboardStep(-1)
+                  playSfx('confirm')
+                }
+              }}
+            >
+              {onboardStep + 1 < ONBOARD_SLIDES.length ? '下一条' : '开始这段人生'}
             </button>
           </div>
         </div>

@@ -1,6 +1,9 @@
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import type { GameState, LifePack } from '../engine/types'
 import { formatStat } from './format'
 import { drawIcon } from './icons'
+import { Buddy, type Emotion } from './Buddy'
 
 const GRADE_COLORS: Record<string, string> = {
   S: '#f5c518',
@@ -10,10 +13,27 @@ const GRADE_COLORS: Record<string, string> = {
   D: '#8b949e',
 }
 
-/** 把一局人生画成一张可分享的结局卡 PNG */
-export function drawEndingCard(pack: LifePack, state: GameState): HTMLCanvasElement {
+const GRADE_EMOTION: Record<string, Emotion> = {
+  S: 'joy',
+  A: 'joy',
+  B: 'calm',
+  C: 'worry',
+  D: 'grief',
+}
+
+function svgToImage(svg: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('buddy svg load failed'))
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+  })
+}
+
+/** 把一局人生画成一张可分享的结局卡 PNG（含小人的最终状态） */
+export async function drawEndingCard(pack: LifePack, state: GameState): Promise<HTMLCanvasElement> {
   const W = 900
-  const H = 1200
+  const H = 1460
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H
@@ -86,9 +106,26 @@ export function drawEndingCard(pack: LifePack, state: GameState): HTMLCanvasElem
   ctx.font = '29px system-ui, sans-serif'
   wrapText(ctx, ending.text, W / 2, 530, W - 170, 46)
 
+  // 小人的最终状态
+  try {
+    const income = state.stats[pack.chartStat] ?? 0
+    const svg = renderToStaticMarkup(
+      createElement(Buddy, {
+        emotion: GRADE_EMOTION[ending.grade] ?? 'calm',
+        siteLive: !!state.flags.siteLive,
+        working: false,
+        tier: income >= 100 ? 2 : income >= 10 ? 1 : 0,
+      }),
+    )
+    const img = await svgToImage(svg)
+    ctx.drawImage(img, (W - 336) / 2, 724, 336, 240)
+  } catch {
+    // 小人渲染失败不阻塞出卡
+  }
+
   // 收入曲线
-  const chartTop = 760
-  const chartH = 180
+  const chartTop = 1004
+  const chartH = 170
   const chartLeft = 100
   const chartW = W - 200
   ctx.fillStyle = 'rgba(255,255,255,0.03)'
@@ -136,7 +173,7 @@ export function drawEndingCard(pack: LifePack, state: GameState): HTMLCanvasElem
 
   // 里程碑
   const hit = pack.milestones.filter((m) => state.milestonesHit.includes(m.id))
-  const msY = chartTop + chartH + 112
+  const msY = chartTop + chartH + 100
   if (hit.length > 0) {
     drawIcon(ctx, 'trophy', W / 2 - measureCenterOffset(ctx, hit) - 40, msY - 22, 28, GRADE_COLORS.S, 2)
     ctx.fillStyle = 'rgba(255,255,255,0.85)'
@@ -150,8 +187,8 @@ export function drawEndingCard(pack: LifePack, state: GameState): HTMLCanvasElem
 
   ctx.fillStyle = 'rgba(255,255,255,0.38)'
   ctx.font = '24px system-ui, sans-serif'
-  ctx.fillText('你会活出怎样的出海人生？', W / 2, H - 104)
-  ctx.fillText('FABLEUNION —— 不同人生的体验', W / 2, H - 66)
+  ctx.fillText('你会活出怎样的出海人生？', W / 2, H - 96)
+  ctx.fillText('FABLEUNION —— 不同人生的体验', W / 2, H - 58)
 
   return canvas
 }

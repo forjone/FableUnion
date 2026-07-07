@@ -13,13 +13,19 @@ export function EndingScreen(props: {
   const ending = state.ending!
 
   useEffect(() => {
-    const canvas = drawEndingCard(pack, state)
-    canvas.className = 'ending-canvas'
-    canvasRef.current = canvas
+    let cancelled = false
+    let mounted: HTMLCanvasElement | null = null
+    void drawEndingCard(pack, state).then((canvas) => {
+      if (cancelled) return
+      canvas.className = 'ending-canvas'
+      canvasRef.current = canvas
+      mounted = canvas
+      holderRef.current?.appendChild(canvas)
+    })
     const holder = holderRef.current
-    holder?.appendChild(canvas)
     return () => {
-      holder?.removeChild(canvas)
+      cancelled = true
+      if (mounted && holder?.contains(mounted)) holder.removeChild(mounted)
     }
   }, [pack, state])
 

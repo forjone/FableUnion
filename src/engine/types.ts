@@ -57,8 +57,12 @@ export interface Character {
   desc: string
   initialStats: Record<string, number>
   startFlags?: string[]
-  /** 未解锁角色仅展示占位 */
-  locked?: boolean
+  /** 每回合精力规则（缺省用 pack.energyStat.perTurn）；variance 表示 ±随机波动 */
+  energy?: { base: number; variance?: number }
+  /** 覆盖 pack.turnEffects（如不同的生活开销） */
+  turnEffects?: Effect[]
+  /** 元进度解锁规则，由 meta 层解释；缺省即解锁 */
+  unlock?: { type: 'runs' | 'milestone' | 'grade'; value: string | number; hint: string }
 }
 
 // ---------- 事件（storylet） ----------

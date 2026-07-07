@@ -3,6 +3,8 @@ import { characters, milestones, stats, tasks, turnEffects } from './base'
 import { dailyEvents } from './events-daily'
 import { fateEvents } from './events-fate'
 import { wingEvents } from './events-wing'
+import { extraEvents } from './events-extra'
+import { characterEvents } from './events-characters'
 import { endings } from './endings'
 
 /** 人生包 #1：出海建站 */
@@ -18,7 +20,7 @@ export const siteBuilderPack: LifePack = {
   turnEffects,
   characters,
   tasks,
-  events: [...dailyEvents, ...fateEvents, ...wingEvents],
+  events: [...dailyEvents, ...fateEvents, ...wingEvents, ...extraEvents, ...characterEvents],
   milestones,
   endings,
   wingChance: 0.12,

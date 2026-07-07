@@ -910,3 +910,157 @@ svg {
     flex: 0 0 158px;
   }
 }
+
+/* ---------- 设置 / 引导 ---------- */
+.icon-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 8px;
+  display: inline-flex;
+}
+.icon-btn:hover {
+  color: var(--text);
+}
+.settings-modal .btn.big + .btn.big {
+  margin-top: 10px;
+}
+.danger-btn {
+  color: var(--bad);
+  border-color: rgba(255, 123, 114, 0.4);
+}
+.danger-btn.confirm {
+  background: rgba(255, 123, 114, 0.12);
+  font-weight: 700;
+}
+.onboard-backdrop {
+  z-index: 40;
+}
+.onboard-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* ---------- 图鉴 / 战绩 ---------- */
+.codex-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+}
+.codex-header h1 {
+  margin: 0;
+}
+.codex-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin: 18px 0 6px;
+}
+.codex-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 6px;
+  text-align: center;
+}
+.codex-stat-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.codex-total {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}
+.codex-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.grade-medal.small {
+  width: 26px;
+  height: 26px;
+  font-size: 0.85rem;
+  border-width: 1.5px;
+  flex-shrink: 0;
+}
+.record-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.record-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.record-rank {
+  flex: 0 0 20px;
+  text-align: center;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+.record-main {
+  flex: 1;
+  font-weight: 650;
+  font-size: 0.92rem;
+  min-width: 0;
+}
+.record-sub {
+  display: block;
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.record-final {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--good);
+}
+.codex-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.codex-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.codex-card.unseen {
+  opacity: 0.45;
+}
+.codex-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.codex-card-text {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 3px;
+}
+.codex-trophy {
+  color: var(--text-dim);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.codex-trophy.lit {
+  color: var(--wing);
+}
+.codex-hint {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}

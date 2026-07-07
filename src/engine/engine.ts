@@ -13,13 +13,26 @@ import { pickWeighted } from './rng'
 
 // ---------- 创建 ----------
 
+function characterOf(pack: LifePack, state: GameState) {
+  return pack.characters.find((c) => c.id === state.characterId)
+}
+
+/** 每回合精力：角色规则优先，支持 ±variance 波动（精力碎片化角色） */
+function energyForTurn(pack: LifePack, state: GameState, rng: Rng): number {
+  const rule = characterOf(pack, state)?.energy
+  const base = rule?.base ?? pack.energyStat.perTurn
+  const v = rule?.variance ?? 0
+  if (v <= 0) return base
+  return Math.max(1, base + Math.floor(rng() * (2 * v + 1)) - v)
+}
+
 export function createGame(pack: LifePack, characterId: string): GameState {
   const ch = pack.characters.find((c) => c.id === characterId)
   if (!ch) throw new Error(`unknown character: ${characterId}`)
   const stats: Record<string, number> = {}
   for (const s of pack.stats) stats[s.id] = 0
   Object.assign(stats, ch.initialStats)
-  stats[pack.energyStat.id] = pack.energyStat.perTurn
+  stats[pack.energyStat.id] = ch.energy?.base ?? pack.energyStat.perTurn
   const flags: Record<string, boolean> = {}
   for (const f of ch.startFlags ?? []) flags[f] = true
   return {
@@ -112,8 +125,9 @@ export function endTurn(
     state.log.push({ turn: state.turn, text: outcome.log, kind: 'task' })
   }
 
-  // 2. 周常收支
-  applyEffects(state, pack, pack.turnEffects, rng, 'upkeep')
+  // 2. 周常收支（角色可覆盖，如不同生活成本）
+  const upkeep = characterOf(pack, state)?.turnEffects ?? pack.turnEffects
+  applyEffects(state, pack, upkeep, rng, 'upkeep')
 
   // 3. 抽事件
   const queue: PendingEvent[] = []
@@ -241,7 +255,7 @@ function finishTurn(state: GameState, pack: LifePack, rng: Rng): GameState {
 
   // 翻页
   state.turn += 1
-  state.stats[pack.energyStat.id] = pack.energyStat.perTurn
+  state.stats[pack.energyStat.id] = energyForTurn(pack, state, rng)
   state.phase = 'plan'
   return state
 }
