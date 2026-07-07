@@ -719,3 +719,194 @@ svg {
   max-width: 560px;
   margin: 40px auto 0;
 }
+
+/* ---------- 小人 ---------- */
+.buddy-panel {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+.buddy-room {
+  flex: 0 0 190px;
+}
+.buddy-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.buddy-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+.buddy-status {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+.emo-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid;
+  font-size: 0.85rem;
+  margin-left: 2px;
+}
+.emo-tag.emo-joy { color: #f5c518; border-color: rgba(245, 197, 24, 0.5); }
+.emo-tag.emo-calm { color: var(--good); border-color: rgba(126, 231, 135, 0.45); }
+.emo-tag.emo-worry { color: #79c0ff; border-color: rgba(121, 192, 255, 0.45); }
+.emo-tag.emo-anger { color: var(--bad); border-color: rgba(255, 123, 114, 0.5); }
+.emo-tag.emo-grief { color: #a5b0c2; border-color: rgba(165, 176, 194, 0.45); }
+.buddy-bubble {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  border-bottom-left-radius: 3px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  color: var(--text);
+  animation: bubble-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.buddy-bubble::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  bottom: 8px;
+  width: 12px;
+  height: 12px;
+  background: var(--bg-card);
+  border-left: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: rotate(45deg) skew(8deg, 8deg);
+}
+.buddy-bubble.burst {
+  border-color: var(--accent);
+}
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.buddy-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4a5264;
+}
+.live-dot.on {
+  background: var(--good);
+  box-shadow: 0 0 6px rgba(126, 231, 135, 0.7);
+  animation: led-pulse 2.4s ease-in-out infinite;
+}
+
+/* 小人动画 */
+.buddy-figure,
+.buddy-head {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.buddy-head {
+  animation: buddy-bob 3.4s ease-in-out infinite;
+}
+@keyframes buddy-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.6px); }
+}
+.buddy-figure.emo-joy {
+  animation: buddy-hop 1.5s ease-in-out infinite;
+}
+@keyframes buddy-hop {
+  0%, 100% { transform: translateY(0); }
+  18% { transform: translateY(-4px); }
+  32% { transform: translateY(0); }
+}
+.buddy-figure.emo-anger {
+  animation: buddy-shake 0.45s linear infinite;
+}
+@keyframes buddy-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1.4px); }
+  75% { transform: translateX(1.4px); }
+}
+.buddy-figure.emo-grief .buddy-head {
+  animation: buddy-slump 4s ease-in-out infinite;
+}
+@keyframes buddy-slump {
+  0%, 100% { transform: translateY(2.6px) rotate(-2deg); }
+  50% { transform: translateY(3.4px) rotate(-2deg); }
+}
+.buddy-figure.emo-worry .buddy-head {
+  animation: buddy-glance 5s ease-in-out infinite;
+}
+@keyframes buddy-glance {
+  0%, 62%, 100% { transform: translateY(0); }
+  70%, 90% { transform: translateY(0.8px) rotate(1.6deg); }
+}
+.buddy-tear {
+  transform-box: fill-box;
+  animation: tear-drip 2.2s ease-in infinite;
+}
+@keyframes tear-drip {
+  0% { transform: translateY(0); opacity: 0; }
+  25% { opacity: 0.95; }
+  80% { transform: translateY(7px); opacity: 0.2; }
+  100% { transform: translateY(8px); opacity: 0; }
+}
+.buddy-sparkles {
+  animation: twinkle 1.1s ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.buddy-anger-mark {
+  animation: twinkle 0.6s ease-in-out infinite;
+}
+.buddy-led {
+  animation: led-pulse 2.4s ease-in-out infinite;
+}
+@keyframes led-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.buddy-steam {
+  transform-box: fill-box;
+  animation: steam-rise 2.8s ease-in-out infinite;
+}
+@keyframes steam-rise {
+  0% { transform: translateY(0); opacity: 0; }
+  35% { opacity: 0.6; }
+  100% { transform: translateY(-4px); opacity: 0; }
+}
+.buddy-figure.working .buddy-hand-l {
+  transform-box: fill-box;
+  animation: type-tap 0.32s linear infinite;
+}
+.buddy-figure.working .buddy-hand-r {
+  transform-box: fill-box;
+  animation: type-tap 0.32s linear infinite 0.16s;
+}
+@keyframes type-tap {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.6px); }
+}
+
+@media (max-width: 420px) {
+  .buddy-room {
+    flex: 0 0 158px;
+  }
+}

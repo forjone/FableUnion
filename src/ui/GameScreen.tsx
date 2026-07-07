@@ -4,6 +4,7 @@ import { eligibleTasks, endTurn, getEvent, resolveChoice } from '../engine/engin
 import { evalCondition, describeCondition } from '../engine/conditions'
 import { formatStat } from './format'
 import { Icon } from './icons'
+import { Buddy, baseEmotion, pickQuip, EMOTION_LABEL, type Emotion } from './Buddy'
 
 interface Delta {
   def: StatDef
@@ -39,6 +40,26 @@ export function GameScreen(props: {
   const [eventResult, setEventResult] = useState<{ title: string; pool: string; text: string; deltas: Delta[] } | null>(null)
   const [milestoneShow, setMilestoneShow] = useState<Milestone | null>(null)
   const milestoneSeen = useRef<string[]>(state.milestonesHit)
+  const [burst, setBurst] = useState<{ emotion: Emotion; text: string; key: number } | null>(null)
+
+  // 情绪爆发：3.4 秒后回落到常态
+  useEffect(() => {
+    if (!burst) return
+    const t = setTimeout(() => setBurst(null), 3400)
+    return () => clearTimeout(t)
+  }, [burst])
+
+  const triggerBurst = (deltas: Delta[]) => {
+    const moodDelta = deltas.find((d) => d.def.id === 'mood')?.delta ?? 0
+    let emotion: Emotion | null = null
+    if (moodDelta >= 1) emotion = 'joy'
+    else if (moodDelta <= -6) emotion = 'grief'
+    else if (moodDelta < 0) emotion = 'anger'
+    if (emotion) {
+      const key = Date.now()
+      setBurst({ emotion, text: pickQuip(emotion, key), key })
+    }
+  }
 
   const tasks = useMemo(() => eligibleTasks(state, pack), [state, pack])
   const energy = state.stats[pack.energyStat.id] ?? 0
@@ -90,12 +111,23 @@ export function GameScreen(props: {
     setState(next)
   }
 
+  const closeReport = () => {
+    if (weekReport) triggerBurst(weekReport.deltas)
+    setWeekReport(null)
+  }
+  const closeResult = () => {
+    if (eventResult) triggerBurst(eventResult.deltas)
+    setEventResult(null)
+  }
+
   const pending = state.pendingEvents[0]
   const pendingEvent = pending ? getEvent(pack, pending.eventId) : null
   const overlayOpen = !!weekReport || !!eventResult || !!milestoneShow
 
   const mood = state.stats.mood ?? 0
   const skillDefs = pack.stats.filter((s) => !s.hidden && s.max === 100 && s.id !== 'mood')
+  const displayEmotion: Emotion = burst?.emotion ?? baseEmotion(mood)
+  const quip = burst?.text ?? pickQuip(baseEmotion(mood), state.turn)
 
   return (
     <div className="screen game-screen">
@@ -141,6 +173,28 @@ export function GameScreen(props: {
           <div className="turn-progress-fill" style={{ width: `${(state.turn / pack.maxTurns) * 100}%` }} />
         </div>
       </header>
+
+      <section className="buddy-panel">
+        <div className="buddy-room">
+          <Buddy
+            emotion={displayEmotion}
+            siteLive={!!state.flags.siteLive}
+            working={state.phase === 'plan' && chosen.length > 0}
+          />
+        </div>
+        <div className="buddy-side">
+          <div className="buddy-status">
+            此刻 · <b className={'emo-tag emo-' + displayEmotion}>{EMOTION_LABEL[displayEmotion]}</b>
+          </div>
+          <div className={'buddy-bubble' + (burst ? ' burst' : '')} key={burst?.key ?? state.turn}>
+            {quip}
+          </div>
+          <div className="buddy-meta">
+            <span className={'live-dot' + (state.flags.siteLive ? ' on' : '')} />
+            {state.flags.siteLive ? '你的网站在线上运行着' : '还没有一个自己的网站'}
+          </div>
+        </div>
+      </section>
 
       {state.phase === 'plan' && (
         <section className="plan">
@@ -198,7 +252,7 @@ export function GameScreen(props: {
 
       {/* 周结算 */}
       {weekReport && (
-        <div className="modal-backdrop" onClick={() => setWeekReport(null)}>
+        <div className="modal-backdrop" onClick={closeReport}>
           <div className="event-modal report-modal" onClick={(e) => e.stopPropagation()}>
             <div className="event-pool-tag">第 {weekReport.week} {pack.turnUnit} · 结算</div>
             <ul className="report-list">
@@ -214,7 +268,7 @@ export function GameScreen(props: {
               )}
             </ul>
             <DeltaChips deltas={weekReport.deltas} />
-            <button className="btn primary big" onClick={() => setWeekReport(null)}>
+            <button className="btn primary big" onClick={closeReport}>
               继续
             </button>
           </div>
@@ -267,7 +321,7 @@ export function GameScreen(props: {
 
       {/* 事件：结果阶段 */}
       {eventResult && (
-        <div className="modal-backdrop" onClick={() => setEventResult(null)}>
+        <div className="modal-backdrop" onClick={closeResult}>
           <div className={'event-modal result-modal pool-' + eventResult.pool} onClick={(e) => e.stopPropagation()}>
             <div className="event-pool-tag">
               <span className={'pool-dot ' + eventResult.pool} />
@@ -275,7 +329,7 @@ export function GameScreen(props: {
             </div>
             <p className="event-text result-text">{eventResult.text}</p>
             <DeltaChips deltas={eventResult.deltas} />
-            <button className="btn primary big" onClick={() => setEventResult(null)}>
+            <button className="btn primary big" onClick={closeResult}>
               继续
             </button>
           </div>
