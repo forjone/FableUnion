@@ -1,9 +1,7 @@
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import type { GameState, LifePack } from '../engine/types'
+import { getBuddyImage, visualStateForEnding } from './buddyVisuals'
 import { formatStat } from './format'
 import { drawIcon } from './icons'
-import { Buddy, type Emotion } from './Buddy'
 
 const GRADE_COLORS: Record<string, string> = {
   S: '#f5c518',
@@ -13,20 +11,12 @@ const GRADE_COLORS: Record<string, string> = {
   D: '#8b949e',
 }
 
-const GRADE_EMOTION: Record<string, Emotion> = {
-  S: 'joy',
-  A: 'joy',
-  B: 'calm',
-  C: 'worry',
-  D: 'grief',
-}
-
-function svgToImage(svg: string): Promise<HTMLImageElement> {
+function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('buddy svg load failed'))
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+    img.onerror = () => reject(new Error(`image load failed: ${src}`))
+    img.src = src
   })
 }
 
@@ -108,17 +98,8 @@ export async function drawEndingCard(pack: LifePack, state: GameState): Promise<
 
   // 小人的最终状态
   try {
-    const income = state.stats[pack.chartStat] ?? 0
-    const svg = renderToStaticMarkup(
-      createElement(Buddy, {
-        emotion: GRADE_EMOTION[ending.grade] ?? 'calm',
-        siteLive: !!state.flags.siteLive,
-        working: false,
-        tier: income >= 100 ? 2 : income >= 10 ? 1 : 0,
-      }),
-    )
-    const img = await svgToImage(svg)
-    ctx.drawImage(img, (W - 336) / 2, 724, 336, 240)
+    const img = await loadImage(getBuddyImage(state.characterId, visualStateForEnding(ending.grade)))
+    drawBuddyStage(ctx, img, (W - 360) / 2, 704, 360, 260, !!state.flags.siteLive)
   } catch {
     // 小人渲染失败不阻塞出卡
   }
@@ -191,6 +172,92 @@ export async function drawEndingCard(pack: LifePack, state: GameState): Promise<
   ctx.fillText('FABLEUNION —— 不同人生的体验', W / 2, H - 58)
 
   return canvas
+}
+
+function drawBuddyStage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  siteLive: boolean,
+): void {
+  ctx.save()
+  roundRect(ctx, x, y, w, h, 24)
+  const bg = ctx.createLinearGradient(0, y, 0, y + h)
+  bg.addColorStop(0, '#1b2a3b')
+  bg.addColorStop(0.62, '#111a25')
+  bg.addColorStop(1, '#0a0d12')
+  ctx.fillStyle = bg
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+
+  const glow = ctx.createRadialGradient(x + w / 2, y + h * 0.74, 20, x + w / 2, y + h * 0.74, w * 0.42)
+  glow.addColorStop(0, 'rgba(245,166,35,0.28)')
+  glow.addColorStop(1, 'rgba(245,166,35,0)')
+  ctx.fillStyle = glow
+  ctx.fillRect(x, y, w, h)
+
+  // Window
+  ctx.fillStyle = '#0b1220'
+  ctx.strokeStyle = '#3a465a'
+  ctx.lineWidth = 1.5
+  roundRect(ctx, x + 28, y + 28, 84, 58, 8)
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = 'rgba(216,222,233,0.85)'
+  ctx.beginPath()
+  ctx.arc(x + 48, y + 47, 7, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Monitor
+  ctx.fillStyle = '#202a39'
+  ctx.strokeStyle = '#3a4356'
+  roundRect(ctx, x + w - 102, y + h - 112, 64, 45, 7)
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = siteLive ? '#7ee787' : '#4a5264'
+  ctx.beginPath()
+  ctx.arc(x + w - 51, y + h - 78, 4, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Desk and shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.36)'
+  ctx.beginPath()
+  ctx.ellipse(x + w / 2, y + h - 52, 74, 14, 0, 0, Math.PI * 2)
+  ctx.fill()
+  const desk = ctx.createLinearGradient(0, y + h - 74, 0, y + h - 42)
+  desk.addColorStop(0, '#454e61')
+  desk.addColorStop(1, '#262d3b')
+  ctx.fillStyle = desk
+  roundRect(ctx, x + 34, y + h - 76, w - 68, 28, 9)
+  ctx.fill()
+
+  const imgW = w * 0.56
+  const imgH = h * 0.86
+  ctx.drawImage(img, x + (w - imgW) / 2, y + h - imgH - 36, imgW, imgH)
+  ctx.restore()
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const radius = Math.min(r, w / 2, h / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + w, y, x + w, y + h, radius)
+  ctx.arcTo(x + w, y + h, x, y + h, radius)
+  ctx.arcTo(x, y + h, x, y, radius)
+  ctx.arcTo(x, y, x + w, y, radius)
+  ctx.closePath()
 }
 
 function measureCenterOffset(

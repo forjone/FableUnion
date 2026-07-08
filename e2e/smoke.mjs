@@ -5,11 +5,12 @@
  */
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 
 const PORT = 4519
 const BASE = `http://localhost:${PORT}`
-const SHOTS = new URL('./screenshots/', import.meta.url).pathname
+const SHOTS = fileURLToPath(new URL('./screenshots/', import.meta.url))
 mkdirSync(SHOTS, { recursive: true })
 
 const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {

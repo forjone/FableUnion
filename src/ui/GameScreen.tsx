@@ -221,9 +221,12 @@ export function GameScreen(props: {
       <section className="buddy-panel">
         <div className="buddy-room">
           <Buddy
+            characterId={state.characterId}
             emotion={displayEmotion}
             siteLive={!!state.flags.siteLive}
             working={state.phase === 'plan' && chosen.length > 0}
+            mood={mood}
+            burst={!!burst}
             tier={(state.stats.income ?? 0) >= 100 ? 2 : (state.stats.income ?? 0) >= 10 ? 1 : 0}
           />
         </div>
@@ -244,7 +247,7 @@ export function GameScreen(props: {
       {state.phase === 'plan' && (
         <section className="plan">
           <div className="plan-header">
-            <h2>本{pack.turnUnit}安排</h2>
+            <h2>本{pack.turnUnit}行动牌</h2>
             <div className="energy-pips" title={`精力 ${remaining}/${energy}`}>
               <Icon name="energy" size={13} />
               {Array.from({ length: pack.energyStat.perTurn }).map((_, i) => (
@@ -281,7 +284,9 @@ export function GameScreen(props: {
                   </div>
                   <div className="task-desc">{t.desc}</div>
                   {t.baseSuccess < 1 && (
-                    <div className={'task-odds' + (p < 0.45 ? ' risky' : '')}>成功率 {Math.round(p * 100)}%</div>
+                    <div className={'task-odds' + (p < 0.45 ? ' risky' : '')}>
+                      命中率 {Math.round(p * 100)}%
+                    </div>
                   )}
                 </button>
               )

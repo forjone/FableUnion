@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { LifePack } from '../engine/types'
 import type { Profile } from '../meta/profile'
 import { isUnlocked } from '../meta/profile'
+import { getBuddyImage } from './buddyVisuals'
 import { Icon } from './icons'
 
 export function StartScreen(props: {
@@ -36,7 +37,12 @@ export function StartScreen(props: {
               onClick={() => setSelected(c.id)}
             >
               <div className="char-avatar">
-                <Icon name={locked ? 'key' : c.icon} size={26} strokeWidth={1.6} />
+                <img src={getBuddyImage(c.id, 'default')} alt="" draggable={false} />
+                {locked && (
+                  <span className="char-lock">
+                    <Icon name="key" size={19} strokeWidth={1.8} />
+                  </span>
+                )}
               </div>
               <div className="char-name">{c.name}</div>
               <div className="char-tagline">{locked ? c.unlock?.hint ?? '未解锁' : c.tagline}</div>

@@ -1,7 +1,8 @@
+import { getBuddyImage, getVisualCharacter, pickBuddyVisualState } from './buddyVisuals'
+
 /**
- * 小人系统：一个住在小房间里的拟人角色。
- * 表情覆盖 喜/怒/哀/乐/悲 五态：乐是常态基线，喜/怒/悲 由事件瞬时触发，
- * 哀/悲 也会随心态值持续走低而成为常态。纯 SVG 矢量，无 emoji。
+ * 小人系统：按人生角色选择小贝/小川立绘，再由心态、事件和工作状态切换视觉状态。
+ * 情绪 API 保持稳定，避免游戏页和结局卡感知视觉实现细节。
  */
 
 export type Emotion = 'joy' | 'calm' | 'worry' | 'anger' | 'grief'
@@ -14,7 +15,7 @@ export const EMOTION_LABEL: Record<Emotion, string> = {
   grief: '悲',
 }
 
-/** 心态值 → 常态情绪 */
+/** 心态值 -> 常态情绪 */
 export function baseEmotion(mood: number): Emotion {
   if (mood >= 78) return 'joy'
   if (mood >= 45) return 'calm'
@@ -35,227 +36,73 @@ export function pickQuip(emotion: Emotion, seed: number): string {
   return list[Math.abs(seed) % list.length]
 }
 
-const SKIN = '#e8b98c'
-const HAIR = '#262b36'
-const HOODIE = '#41506b'
-
-function Face(props: { emotion: Emotion }) {
-  const e = props.emotion
-  return (
-    <g>
-      {/* 眉毛 */}
-      {e === 'joy' && (
-        <g stroke={HAIR} strokeWidth="1.6" strokeLinecap="round" fill="none">
-          <path d="M89 43 q3.5 -2.5 7 0" />
-          <path d="M104 43 q3.5 -2.5 7 0" />
-        </g>
-      )}
-      {e === 'calm' && (
-        <g stroke={HAIR} strokeWidth="1.6" strokeLinecap="round" fill="none">
-          <path d="M89.5 44.5 q3 -1.5 6 0" />
-          <path d="M104.5 44.5 q3 -1.5 6 0" />
-        </g>
-      )}
-      {(e === 'worry' || e === 'grief') && (
-        <g stroke={HAIR} strokeWidth="1.6" strokeLinecap="round" fill="none">
-          <path d="M89 45.5 L96 43" />
-          <path d="M104 43 L111 45.5" />
-        </g>
-      )}
-      {e === 'anger' && (
-        <g stroke={HAIR} strokeWidth="1.8" strokeLinecap="round" fill="none">
-          <path d="M89 42.5 L96 45.5" />
-          <path d="M104 45.5 L111 42.5" />
-        </g>
-      )}
-
-      {/* 眼睛 */}
-      {e === 'joy' && (
-        <g stroke={HAIR} strokeWidth="1.8" strokeLinecap="round" fill="none">
-          <path d="M90.5 50.5 q3 -3.5 6 0" />
-          <path d="M103.5 50.5 q3 -3.5 6 0" />
-        </g>
-      )}
-      {e === 'calm' && (
-        <g fill={HAIR}>
-          <circle cx="93.5" cy="50" r="1.9" />
-          <circle cx="106.5" cy="50" r="1.9" />
-        </g>
-      )}
-      {e === 'worry' && (
-        <g fill={HAIR}>
-          <circle cx="93.5" cy="51" r="1.7" />
-          <circle cx="106.5" cy="51" r="1.7" />
-        </g>
-      )}
-      {e === 'anger' && (
-        <g fill={HAIR}>
-          <circle cx="93.5" cy="50.5" r="1.8" />
-          <circle cx="106.5" cy="50.5" r="1.8" />
-        </g>
-      )}
-      {e === 'grief' && (
-        <g stroke={HAIR} strokeWidth="1.8" strokeLinecap="round" fill="none">
-          <path d="M90.5 50 q3 3 6 0" />
-          <path d="M103.5 50 q3 3 6 0" />
-        </g>
-      )}
-
-      {/* 嘴 */}
-      {e === 'joy' && <path d="M92.5 57.5 q7.5 8.5 15 0 z" fill="#7a4a3a" />}
-      {e === 'calm' && (
-        <path d="M95 60 q5 3.2 10 0" stroke="#7a4a3a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-      )}
-      {e === 'worry' && (
-        <path d="M95.5 61.5 q4.5 -2.2 9 0" stroke="#7a4a3a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-      )}
-      {e === 'anger' && (
-        <path
-          d="M93.5 61 l3.2 -2 l3.3 2 l3.3 -2 l3.2 2"
-          stroke="#7a4a3a"
-          strokeWidth="1.7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-      )}
-      {e === 'grief' && (
-        <path d="M94.5 62.5 q5.5 -4.5 11 0" stroke="#7a4a3a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
-      )}
-
-      {/* 情绪附加物 */}
-      {e === 'joy' && (
-        <g stroke="#f5c518" strokeWidth="1.4" strokeLinecap="round" className="buddy-sparkles">
-          <path d="M78 34 v5 M75.5 36.5 h5" />
-          <path d="M122 40 v4 M120 42 h4" />
-        </g>
-      )}
-      {e === 'anger' && (
-        <g stroke="#ff7b72" strokeWidth="1.6" strokeLinecap="round" className="buddy-anger-mark">
-          <path d="M117 33 l5 5 M122 33 l-5 5" />
-        </g>
-      )}
-      {e === 'worry' && <path d="M84.5 44 q-2.6 3.4 0 5 q2.6 -1.6 0 -5z" fill="#79c0ff" opacity="0.9" />}
-      {e === 'grief' && (
-        <path className="buddy-tear" d="M92.5 55 q-2.2 3.6 0 5.2 q2.2 -1.6 0 -5.2z" fill="#79c0ff" />
-      )}
-    </g>
-  )
-}
-
 export function Buddy(props: {
+  characterId: string
   emotion: Emotion
   siteLive: boolean
   working: boolean
+  mood?: number
+  burst?: boolean
   /** 房间等级：随收入梯度升级陈设（0 起步 / 1 十刀 / 2 百刀） */
   tier?: number
 }) {
-  const { emotion, siteLive, working } = props
+  const { characterId, emotion, siteLive, working } = props
   const tier = props.tier ?? 0
+  const visualState = pickBuddyVisualState({
+    emotion,
+    mood: props.mood,
+    working,
+    burst: props.burst,
+  })
+  const visualCharacter = getVisualCharacter(characterId)
+  const image = getBuddyImage(characterId, visualState)
+
   return (
-    <svg
-      className="buddy-svg"
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 210 150"
+    <div
+      className={[
+        'buddy-stage',
+        `emo-${emotion}`,
+        `visual-${visualState}`,
+        `char-${visualCharacter}`,
+        working ? 'working' : '',
+        props.burst ? 'burst' : '',
+      ].join(' ')}
       role="img"
       aria-label={`你的小人此刻的情绪：${EMOTION_LABEL[emotion]}`}
     >
-      {/* 房间 */}
-      <rect x="1" y="1" width="208" height="148" rx="12" fill="#151a24" stroke="#2b3240" />
-      <line x1="1" y1="116" x2="209" y2="116" stroke="#232936" strokeWidth="1.5" />
-      {/* 窗户与夜空 */}
-      <g>
-        <rect x="16" y="18" width="46" height="38" rx="3" fill="#10182b" stroke="#333c4e" strokeWidth="1.5" />
-        <line x1="39" y1="18" x2="39" y2="56" stroke="#333c4e" strokeWidth="1.2" />
-        <line x1="16" y1="37" x2="62" y2="37" stroke="#333c4e" strokeWidth="1.2" />
-        <circle cx="30" cy="27" r="4" fill="#d8dee9" opacity="0.85" />
-        <circle cx="50" cy="46" r="0.9" fill="#d8dee9" opacity="0.7" />
-        <circle cx="55" cy="24" r="0.7" fill="#d8dee9" opacity="0.5" />
-        <circle cx="22" cy="48" r="0.7" fill="#d8dee9" opacity="0.5" />
-      </g>
-      {/* 绿植 */}
-      <g>
-        <path d="M30 116 h14 l-2 -10 h-10 z" fill="#3b3226" />
-        <g stroke="#4f8f5e" strokeWidth="2.2" strokeLinecap="round" fill="none">
-          <path d="M37 106 q-1 -8 -6 -11" />
-          <path d="M37 106 q1 -9 5 -12" />
-          <path d="M37 106 q0 -6 0 -9" />
-        </g>
-      </g>
-      {/* 书桌 */}
-      <rect x="70" y="94" width="126" height="6" rx="2" fill="#3b4150" />
-      <rect x="78" y="100" width="5" height="16" fill="#303643" />
-      <rect x="183" y="100" width="5" height="16" fill="#303643" />
-      {/* 笔记本（背面朝观众） */}
-      <g>
-        <path d="M146 70 h30 l3 24 h-36 z" fill="#2a3140" stroke="#3a4356" strokeWidth="1.2" />
-        <circle
-          cx="161"
-          cy="82"
-          r="2.6"
-          fill={siteLive ? '#7ee787' : '#4a5264'}
-          className={siteLive ? 'buddy-led' : ''}
-        />
-        <rect x="140" y="94" width="42" height="3" rx="1.5" fill="#454e61" />
-      </g>
-      {/* 房间升级陈设 */}
-      {tier >= 1 && (
-        <g>
-          {/* 第二块显示器 */}
-          <rect x="178" y="72" width="4" height="22" rx="1" fill="#333c4e" />
-          <rect x="168" y="64" width="24" height="17" rx="2" fill="#232c3d" stroke="#3a4356" strokeWidth="1.2" />
-          <polyline points="171,76 175,72 179,74 183,68 189,70" stroke="#7ee787" strokeWidth="1.3" fill="none" />
-          {/* 墙上海报 */}
-          <rect x="150" y="22" width="30" height="22" rx="2" fill="none" stroke="#3a4356" strokeWidth="1.4" />
-          <path d="M155 38 l6 -7 4 4 5 -6 5 5" stroke="#f5a623" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-        </g>
-      )}
-      {tier >= 2 && (
-        <g>
-          {/* 奖杯架 */}
-          <rect x="86" y="24" width="44" height="3" rx="1.5" fill="#3b4150" />
-          <g stroke="#f5c518" strokeWidth="1.3" fill="none" strokeLinecap="round">
-            <path d="M96 24 v-3 M92.5 15 h7 v4 a3.5 3.5 0 0 1 -7 0 z" />
-            <path d="M114 24 v-3 M110.5 15 h7 v4 a3.5 3.5 0 0 1 -7 0 z" />
-          </g>
-          {/* 窗外城市天际线 */}
-          <g fill="#26314a">
-            <rect x="19" y="42" width="6" height="13" />
-            <rect x="27" y="38" width="7" height="17" />
-            <rect x="42" y="44" width="6" height="11" />
-            <rect x="50" y="40" width="8" height="15" />
-          </g>
-          <g fill="#f5c518" opacity="0.7">
-            <rect x="29" y="41" width="1.4" height="1.4" />
-            <rect x="32" y="45" width="1.4" height="1.4" />
-            <rect x="52" y="43" width="1.4" height="1.4" />
-          </g>
-        </g>
-      )}
-      {/* 马克杯 */}
-      <g>
-        <rect x="122" y="86" width="9" height="8" rx="1.5" fill="#8a5a44" />
-        <path d="M131 88 q4 1.5 0 4" stroke="#8a5a44" strokeWidth="1.6" fill="none" />
-        <path className="buddy-steam" d="M126 83 q1.5 -2 0 -4" stroke="#9aa5b4" strokeWidth="1" fill="none" opacity="0.6" />
-      </g>
+      <div className="buddy-wall">
+        <div className="buddy-window" aria-hidden="true">
+          <span className="moon" />
+          <span className="star s1" />
+          <span className="star s2" />
+          <span className="skyline" />
+        </div>
+        {tier >= 1 && <div className="buddy-poster" aria-hidden="true" />}
+        {tier >= 2 && (
+          <div className="buddy-trophy-shelf" aria-hidden="true">
+            <span />
+            <span />
+          </div>
+        )}
+      </div>
 
-      {/* 小人 */}
-      <g className={`buddy-figure emo-${emotion}${working ? ' working' : ''}`}>
-        {/* 身体 */}
-        <path d="M76 94 q0 -22 24 -22 q24 0 24 22 z" fill={HOODIE} />
-        <path d="M96 72 h8 v6 h-8 z" fill={SKIN} />
-        {/* 手臂搭在桌上 */}
-        <path d="M79 88 q4 8 18 8" stroke={HOODIE} strokeWidth="7" strokeLinecap="round" fill="none" />
-        <path d="M121 88 q-4 8 -18 8" stroke={HOODIE} strokeWidth="7" strokeLinecap="round" fill="none" />
-        <circle cx="97" cy="95" r="3.2" fill={SKIN} className="buddy-hand-l" />
-        <circle cx="103" cy="95" r="3.2" fill={SKIN} className="buddy-hand-r" />
-        {/* 头 */}
-        <g className="buddy-head">
-          <circle cx="100" cy="51" r="17" fill={SKIN} />
-          <path d="M83.5 47 q1 -14.5 16.5 -14.5 q15.5 0 16.5 14.5 q-5 -7 -16.5 -7 q-11.5 0 -16.5 7 z" fill={HAIR} />
-          <Face emotion={emotion} />
-        </g>
-      </g>
-    </svg>
+      <div className="buddy-monitor" aria-hidden="true">
+        <span className={siteLive ? 'monitor-led on' : 'monitor-led'} />
+        <span className="monitor-line l1" />
+        <span className="monitor-line l2" />
+      </div>
+
+      <div className="buddy-plant" aria-hidden="true">
+        <span className="stem" />
+        <span className="leaf left" />
+        <span className="leaf right" />
+        <span className="pot" />
+      </div>
+
+      <div className="buddy-shadow" aria-hidden="true" />
+      <div className="buddy-desk" aria-hidden="true" />
+      <img className="buddy-character-img" src={image} alt="" draggable={false} />
+      <div className="buddy-stage-light" aria-hidden="true" />
+    </div>
   )
 }
