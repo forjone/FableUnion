@@ -1,6 +1,8 @@
 // 需求拆解引擎的内部骨架（PRD 3.2）。
 // 注意：这些结构只给 AI/代码用，任何面向孩子的呈现都不得暴露它们。
 
+import type { Genome } from './genome';
+
 export type CreationType = 'game' | 'website';
 /** 网站类作品的“核心功能”取值（对应 PRD 槽位 mechanic 的网站语义） */
 export type SiteKind = 'gallery' | 'story' | 'intro' | 'invite';
@@ -135,4 +137,6 @@ export interface WorkRecord {
   dialogue: DialogueEntry[];
   /** AI 生成的终稿封面（未生成时为 null，展示回退到角色立绘） */
   coverUrl?: string | null;
+  /** 作品基因：构建时生成的独有剧本（生成产物的一部分） */
+  genome?: Genome | null;
 }

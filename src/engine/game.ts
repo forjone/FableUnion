@@ -5,6 +5,7 @@
 import { characterSVG } from '../art/characters';
 import { star5 } from '../art/props';
 import { svgToImage, wrapPropSVG } from '../art/raster';
+import type { GameGenome, GenEvent } from './genome';
 import { SCENE_THEMES, TONE_ACCENT, themeOf, workTitle } from './sketch';
 import type { GameSpec, SiteSpec, SlotProfile } from './types';
 
@@ -160,6 +161,10 @@ export class GameRuntime {
   private progress2 = 0;
   private speed2 = 0;
   private winner: 1 | 2 = 1;
+  // 作品基因（生成的剧本）：事件队列 + 横幅 + 顺风时限
+  private pendingEvents: GenEvent[] = [];
+  private banner: { line: string; until: number } | null = null;
+  private windUntil = 0;
   // pop
   private bubbles: { x: number; y: number; r: number; life: number }[] = [];
 
@@ -207,6 +212,8 @@ export class GameRuntime {
     private level = 1,
     /** 双人对决：左右半屏各自点按的同屏赛跑（任意作品皆可切换） */
     private duel = false,
+    /** 作品基因：本作品独有的生成剧本（事件/台词） */
+    private genome?: GameGenome,
   ) {
     canvas.width = GAME_W;
     canvas.height = GAME_H;
@@ -225,9 +232,37 @@ export class GameRuntime {
       }));
       this.heroX = 70;
     }
+    if (genome && !duel) {
+      this.pendingEvents = [...genome.events].sort((a, b) => a.at - b.at);
+    }
     canvas.addEventListener('pointerdown', this.onPointer);
     window.addEventListener('keydown', this.keyDown);
     window.addEventListener('keyup', this.keyUp);
+  }
+
+  /** 剧本事件触发（生成的内容在这里“上演”） */
+  private fireEvent(e: GenEvent) {
+    this.banner = { line: e.line, until: this.t + 2.8 };
+    if (e.kind === 'star_rain') {
+      for (let i = 0; i < 16; i++) {
+        this.particles.push({
+          kind: 'spark',
+          x: Math.random() * GAME_W,
+          y: -10 - Math.random() * 60,
+          vx: (Math.random() - 0.5) * 40,
+          vy: 130 + Math.random() * 120,
+          life: 1.8 + Math.random(),
+          size: 6 + Math.random() * 7,
+          color: '#FFC94D',
+        });
+      }
+      sfx.collect();
+    } else if (e.kind === 'speed_wind') {
+      this.windUntil = this.t + 2.5;
+      sfx.jump();
+    } else {
+      sfx.pop();
+    }
   }
 
   // —— 背景音乐：WebAudio 合成的轻快五声音阶循环，跟全局静音联动 ——
@@ -402,7 +437,14 @@ export class GameRuntime {
     }
     if (this.wobble > 0) this.wobble -= dt;
 
-    const moveSpeed = (this.spec.effect === 'speed' ? 360 : 280) * dt;
+    // 剧本事件到点上演
+    while (this.pendingEvents.length > 0 && this.t >= this.pendingEvents[0].at) {
+      this.fireEvent(this.pendingEvents.shift()!);
+    }
+    if (this.banner && this.t > this.banner.until) this.banner = null;
+    const wind = this.t < this.windUntil ? 1.3 : 1; // 顺风事件
+
+    const moveSpeed = (this.spec.effect === 'speed' ? 360 : 280) * dt * wind;
     const m = this.spec.mechanic;
 
     if (m === 'race' && this.duel) {
@@ -420,7 +462,7 @@ export class GameRuntime {
 
     if (m === 'race') {
       this.speed = Math.max(0, this.speed - dt * 0.09);
-      this.progress = Math.min(1, this.progress + this.speed * dt);
+      this.progress = Math.min(1, this.progress + this.speed * dt * wind);
       for (const r of this.rivals) r.p = Math.min(1, r.p + r.v * dt * (0.8 + Math.random() * 0.5));
       if (this.spec.effect === 'rainbow' && this.speed > 0.05) this.trail(this.heroXOnTrack(), GROUND - 30);
       // 组合：赛道上空飘落星星，接住有小加速
@@ -495,7 +537,7 @@ export class GameRuntime {
       }
       if (this.spec.effect === 'rainbow' && (this.held.left || this.held.right)) this.trail(this.heroX, GROUND - 20);
     } else if (m === 'jump') {
-      this.scroll += dt * (210 * this.pace);
+      this.scroll += dt * (210 * this.pace) * wind;
       this.heroVy += 1150 * dt;
       this.heroY = Math.min(GROUND - 36, this.heroY + this.heroVy * dt);
       if (this.heroY >= GROUND - 36) this.heroVy = 0;
@@ -762,6 +804,24 @@ export class GameRuntime {
 
     this.renderHud();
 
+    // 剧本事件横幅
+    if (this.banner && !this.won) {
+      const text = this.banner.line;
+      c.font = '21px "ZCOOL KuaiLe", sans-serif';
+      const w = c.measureText(text).width + 44;
+      c.fillStyle = 'rgba(255,255,255,0.92)';
+      this.roundRect((GAME_W - w) / 2, 52, w, 40, 20);
+      c.fill();
+      c.strokeStyle = '#413A5C';
+      c.lineWidth = 2.5;
+      this.roundRect((GAME_W - w) / 2, 52, w, 40, 20);
+      c.stroke();
+      c.fillStyle = '#D85C2E';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(text, GAME_W / 2, 73);
+    }
+
     if (this.won) {
       c.fillStyle = 'rgba(255,253,246,0.6)';
       c.fillRect(0, 0, GAME_W, GAME_H);
@@ -778,7 +838,8 @@ export class GameRuntime {
       c.fillText(this.duel ? `${this.winner === 1 ? '左边' : '右边'}赢啦！` : '你赢啦！', GAME_W / 2, GAME_H / 2 + 44);
       c.font = '22px "ZCOOL KuaiLe", sans-serif';
       c.fillStyle = '#8A7A6E';
-      c.fillText(this.duel ? '再来一局！' : `第 ${this.level} 关通关！`, GAME_W / 2, GAME_H / 2 + 88);
+      const subline = this.duel ? '再来一局！' : this.genome?.winLine ?? `第 ${this.level} 关通关！`;
+      c.fillText(subline, GAME_W / 2, GAME_H / 2 + 88);
     }
   }
 

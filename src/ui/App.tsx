@@ -9,7 +9,8 @@ import {
   DEFAULT_IMGGEN, generateImage, imagePrompt, imgGenReady, loadImgGenConfig,
   saveImgGenConfig, type ImgGenConfig, type MagicCover,
 } from '../app/imagegen';
-import { llmReady, normalizeUtterance } from '../app/llm';
+import { generateGenome, llmReady, normalizeUtterance } from '../app/llm';
+import { proceduralGenome, type Genome } from '../engine/genome';
 import { record } from '../app/metrics';
 import { checkText, logSafety } from '../app/safety';
 import { loadSpeechPref, setSpeechEnabled, speak, speechEnabled, stopSpeaking } from '../app/speech';
@@ -63,7 +64,7 @@ function journeyIndex(stage: Stage): number {
 
 // —— 作品分享：spec+profile 编入 URL hash，打开即玩（部署后即为可发送的链接） ——
 
-interface SharePayload { spec: WorkSpec; profile: SlotProfile }
+interface SharePayload { spec: WorkSpec; profile: SlotProfile; genome?: Genome | null }
 
 function encodeShare(payload: SharePayload): string {
   return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
@@ -102,6 +103,9 @@ export default function App() {
   const [magic, setMagic] = useState<MagicCover>({ status: 'idle', url: null });
   const [tier, setTier] = useState<AgeTier>('old');
   const magicSeq = useRef(0);
+  // 作品基因（生成的剧本）：确认时开始生成，构建结束时就绪
+  const [genome, setGenome] = useState<Genome | null>(null);
+  const genomeRef = useRef<Promise<Genome> | null>(null);
 
   // —— 1194×834 卡片自适应缩放（对照原型的 fit 逻辑） ——
   const hostRef = useRef<HTMLDivElement>(null);
@@ -138,6 +142,7 @@ export default function App() {
     if (shared) {
       setProfile(shared.profile);
       setSpec(shared.spec);
+      setGenome(shared.genome ?? proceduralGenome(shared.profile));
       setIterating(true);
       setStage({ name: 'play', won: false });
       say(`${shared.spec.title}来啦！这是好朋友分享给你的作品！`);
@@ -270,12 +275,14 @@ export default function App() {
   }, [say]);
 
   // —— ③ → ④：孩子说“对！”，才开始耗费构建资源 ——
+  // 构建动画的同时并行生成作品基因（LLM 创作剧本，失败回退程序化生成）
   const confirmYes = useCallback(() => {
     if (!profile) return;
     record('confirm_yes');
+    genomeRef.current = generateGenome(profile, imgCfg);
     setStage({ name: 'build' });
     say('好嘞！看我的小魔法——');
-  }, [profile, say]);
+  }, [imgCfg, profile, say]);
 
   const confirmNo = useCallback(() => {
     record('confirm_no');
@@ -284,30 +291,39 @@ export default function App() {
     say('没关系！哪里要改？指给我看！');
   }, [cancelMagic, say]);
 
-  // —— ④ → ⑤：构建完成即存档（作品档案 + AI 封面），开始玩 ——
+  // —— ④ → ⑤：构建完成，取回生成的剧本，存档（档案 + AI 封面 + 基因），开始玩 ——
   const buildDone = useCallback(() => {
     if (!profile) return;
-    const s: WorkSpec = profile.creation_type === 'website' ? buildSiteSpec(profile) : buildSpec(profile);
-    setSpec(s);
-    record('build_done');
-    setDialogue((d) => {
-      const rec = saveWork(workId, s.title, profile, s, d, magic.url);
-      setWorkId(rec.id);
-      setWorks(loadWorks());
-      return d;
-    });
-    setStage({ name: 'play', won: false });
-    if (s.type === 'website') {
-      say(`${celebrateLine(profile)}这是一个真的网页哦，可以保存下来送给别人！`);
-    } else {
-      say(`${celebrateLine(profile)}${controlHint(s as GameSpec).text}`);
-    }
+    void (async () => {
+      // 剧本通常在构建动画期间已生成完；最多再等 2.5 秒，否则用程序化剧本
+      const pending = genomeRef.current ?? Promise.resolve(proceduralGenome(profile));
+      const g = await Promise.race([
+        pending,
+        new Promise<Genome>((r) => setTimeout(() => r(proceduralGenome(profile)), 2500)),
+      ]);
+      setGenome(g);
+      const s: WorkSpec = profile.creation_type === 'website' ? buildSiteSpec(profile) : buildSpec(profile);
+      setSpec(s);
+      record('build_done');
+      setDialogue((d) => {
+        const rec = saveWork(workId, s.title, profile, s, d, magic.url, g);
+        setWorkId(rec.id);
+        setWorks(loadWorks());
+        return d;
+      });
+      setStage({ name: 'play', won: false });
+      if (s.type === 'website') {
+        say(`${g.site?.welcomeLine ?? celebrateLine(profile)}这是一个真的网页哦，可以保存下来送给别人！`);
+      } else {
+        say(`${g.game?.intro ?? celebrateLine(profile)}${controlHint(s as GameSpec).text}`);
+      }
+    })();
   }, [profile, say, workId, magic.url]);
 
   // 魔法图在构建/游玩期间才回来 → 补写进档案封面
   useEffect(() => {
     if (magic.status !== 'ready' || !magic.url || !workId || !profile || !spec) return;
-    saveWork(workId, spec.title, profile, spec, dialogue, magic.url);
+    saveWork(workId, spec.title, profile, spec, dialogue, magic.url, genome);
     setWorks(loadWorks());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [magic.status]);
@@ -345,11 +361,11 @@ export default function App() {
     setSpec((s) => {
       if (!s) return s;
       const next = { ...s, accessory: acc };
-      if (workId && profile) saveWork(workId, next.title, profile, next, dialogue, magic.url);
+      if (workId && profile) saveWork(workId, next.title, profile, next, dialogue, magic.url, genome);
       setWorks(loadWorks());
       return next;
     });
-  }, [dialogue, magic.url, profile, workId]);
+  }, [dialogue, genome, magic.url, profile, workId]);
 
   // —— ⑤ → ①：继续迭代，带着已有档案回到倾听 ——
   const iterate = useCallback(() => {
@@ -362,7 +378,7 @@ export default function App() {
 
   const shareWork = useCallback(() => {
     if (!spec || !profile) return;
-    const url = `${window.location.origin}${window.location.pathname}#w=${encodeShare({ spec, profile })}`;
+    const url = `${window.location.origin}${window.location.pathname}#w=${encodeShare({ spec, profile, genome })}`;
     const done = () => say('链接复制好啦！发给好朋友，打开就能玩！');
     try {
       void navigator.clipboard.writeText(url).then(done, done);
@@ -374,6 +390,8 @@ export default function App() {
   const goHome = useCallback(() => {
     stopSpeaking();
     cancelMagic();
+    setGenome(null);
+    genomeRef.current = null;
     resetSession();
     setWorks(loadWorks());
     setCaption('');
@@ -393,6 +411,7 @@ export default function App() {
     setSpec(w.spec);
     setWorkId(w.id);
     setDialogue(w.dialogue ?? []);
+    setGenome(w.genome ?? proceduralGenome(w.profile));
     setIterating(true);
     setStage({ name: 'play', won: false });
     if (w.spec.type === 'website') say(`${w.title}来啦！`);
@@ -483,6 +502,7 @@ export default function App() {
             <SiteStage
               spec={spec as SiteSpec}
               profile={profile}
+              genome={genome?.site ?? null}
               suggestion={suggestion}
               onDress={dressUp}
               onSuggest={acceptSuggestion}
@@ -494,12 +514,15 @@ export default function App() {
             <PlayStage
               spec={spec as GameSpec}
               won={stage.won}
+              genome={genome?.game ?? null}
               suggestion={suggestion}
               onWin={gameWon}
               onNextLevel={(level) => {
                 record('replay');
                 setStage({ name: 'play', won: false });
-                say(`第${level}关来啦！会更快更难哦，加油！`);
+                const names = genome?.game?.levelNames ?? [];
+                const name = names[(level - 2) % Math.max(1, names.length)];
+                say(name ? `第${level}关：${name}！加油！` : `第${level}关来啦！会更快更难哦，加油！`);
               }}
               onDuel={() => {
                 record('duel_start');

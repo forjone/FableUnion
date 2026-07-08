@@ -1,6 +1,7 @@
 // 作品档案（PRD 3.7）：槽位 JSON + 对话历史 + 构建产物参数，全部本地持久化。
 // V3 的家长层可直接读取这份档案（含 PRD 第 6 节格式的槽位 JSON）。
 
+import type { Genome } from '../engine/genome';
 import { slotsToJSON } from '../engine/parser';
 import type { DialogueEntry, SlotProfile, WorkRecord, WorkSpec } from '../engine/types';
 
@@ -28,6 +29,7 @@ export function saveWork(
   spec: WorkSpec,
   dialogue: DialogueEntry[],
   coverUrl?: string | null,
+  genome?: Genome | null,
 ): WorkRecord {
   const list = loadWorks();
   const now = Date.now();
@@ -40,6 +42,7 @@ export function saveWork(
     found.spec = spec;
     found.dialogue = dialogue;
     if (coverUrl !== undefined) found.coverUrl = coverUrl;
+    if (genome !== undefined) found.genome = genome;
     persist([found, ...list.filter((w) => w.id !== found.id)]);
     return found;
   }
@@ -53,6 +56,7 @@ export function saveWork(
     spec,
     dialogue,
     coverUrl: coverUrl ?? null,
+    genome: genome ?? null,
   };
   persist([rec, ...list]);
   return rec;

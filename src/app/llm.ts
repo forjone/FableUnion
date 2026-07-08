@@ -1,8 +1,11 @@
-// LLM 归一层（PRD 第 6 节“需求拆解用 Claude API”的适配实现）。
-// 思路：不是让 LLM 直接产出槽位，而是把孩子语无伦次的话改写成一句规范描述，
-// 再交给确定性的规则引擎拆解——下游的分歧检测/默认填充/置信度逻辑全部复用，
-// LLM 不可用/超时/未配置时直接用原话走规则引擎，流程零依赖。
+// LLM 生成层：
+// ① 语义归一（PRD 需求拆解适配）：把孩子语无伦次的话改写成规范句，再交给确定性规则引擎。
+// ② 内容创作（Genome）：为每个作品生成独有的剧本（开场白/事件/台词/故事/文案）。
+// 两者都遵循同一原则：LLM 不可用/超时/未配置时零感知回退（规则引擎 / 程序化生成器）。
 
+import { mendGenome, proceduralGenome, type Genome } from '../engine/genome';
+import { slotsToJSON } from '../engine/parser';
+import type { SlotProfile } from '../engine/types';
 import type { ImgGenConfig } from './imagegen';
 
 const SYSTEM_PROMPT =
@@ -49,5 +52,57 @@ export async function normalizeUtterance(text: string, cfg: ImgGenConfig): Promi
     return out;
   } catch {
     return null;
+  }
+}
+
+// ---------- 内容创作：作品基因（Genome） ----------
+
+const GENOME_GAME_PROMPT =
+  '你是儿童游戏的编剧。根据给定的作品槽位 JSON，为一个 4-10 岁孩子的小游戏创作独有的剧本。' +
+  '只输出一个 JSON 对象，不要任何解释或代码块标记，字段：' +
+  'intro（开场小故事，一句话，≤40字）、winLine（通关台词，≤25字）、' +
+  'levelNames（4个有故事感的关卡名，每个≤12字）、' +
+  'events（2-3个游戏事件，每个含 at:触发秒数4-35 的数字、kind:"star_rain"|"speed_wind"|"cheer" 之一、line:横幅台词≤15字）、' +
+  'itemName（收集物的可爱命名≤6字）、obstacleName（障碍物的可爱命名≤6字）。' +
+  '全部中文、活泼、适合幼儿、不出现任何吓人内容。';
+
+const GENOME_SITE_PROMPT =
+  '你是儿童绘本作者。根据给定的作品槽位 JSON，为一个 4-10 岁孩子的网页作品创作内容。' +
+  '只输出一个 JSON 对象，不要任何解释或代码块标记，字段：' +
+  'welcomeLine（欢迎语≤25字）、storyPages（4页小故事，每页一句话≤50字，有起承转合）、' +
+  'facts（4-5条趣味小档案，每条是 [标签,内容] 数组，标签≤6字、内容≤15字）、' +
+  'inviteLine（派对邀请大字≤18字）。全部中文、温暖活泼、适合幼儿。';
+
+/**
+ * 生成作品基因：LLM 创作 → 校验修补；任何失败都落到程序化生成器。
+ * 永远成功返回（生成逻辑不允许阻塞创作闭环）。
+ */
+export async function generateGenome(profile: SlotProfile, cfg: ImgGenConfig): Promise<Genome> {
+  if (!llmReady(cfg) || cfg.baseUrl === 'mock') return proceduralGenome(profile);
+  try {
+    const res = await fetch(`${cfg.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${cfg.apiKey.trim()}`,
+      },
+      body: JSON.stringify({
+        model: cfg.llmModel.trim(),
+        temperature: 0.9, // 创作要有变化
+        max_tokens: 600,
+        messages: [
+          { role: 'system', content: profile.creation_type === 'website' ? GENOME_SITE_PROMPT : GENOME_GAME_PROMPT },
+          { role: 'user', content: JSON.stringify(slotsToJSON(profile)) },
+        ],
+      }),
+      signal: AbortSignal.timeout(9000),
+    });
+    if (!res.ok) return proceduralGenome(profile);
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const out = data.choices?.[0]?.message?.content?.trim() ?? '';
+    const jsonText = out.replace(/^```(?:json)?/m, '').replace(/```$/m, '').trim();
+    return mendGenome(JSON.parse(jsonText), profile);
+  } catch {
+    return proceduralGenome(profile);
   }
 }

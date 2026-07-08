@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import type { AccessoryId } from '../art/characters';
 import { IconHome, IconMic, IconPencil, IconSparkle } from '../art/icons';
 import { buildSiteHTML } from '../engine/website';
+import type { SiteGenome } from '../engine/genome';
 import type { Suggestion } from '../engine/suggest';
 import type { SiteSpec, SlotProfile } from '../engine/types';
 import { DressUp, SuggestChip } from './bits';
@@ -11,13 +12,17 @@ import { DressUp, SuggestChip } from './bits';
 export function SiteStage(props: {
   spec: SiteSpec;
   profile: SlotProfile;
+  genome: SiteGenome | null;
   suggestion: Suggestion | null;
   onDress: (acc: AccessoryId | null) => void;
   onSuggest: (say: string) => void;
   onIterate: () => void;
   onHome: () => void;
 }) {
-  const html = useMemo(() => buildSiteHTML(props.spec, props.profile), [props.spec, props.profile]);
+  const html = useMemo(
+    () => buildSiteHTML(props.spec, props.profile, props.genome),
+    [props.spec, props.profile, props.genome],
+  );
   const [downloaded, setDownloaded] = useState(false);
   const [dressOpen, setDressOpen] = useState(false);
 

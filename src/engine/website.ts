@@ -3,7 +3,8 @@
 // 页面完全自包含（插画全部内联 SVG），下载后离线可看——“留下真实可用的成品”。
 
 import { characterSVG } from '../art/characters';
-import { TONE_LABEL, sceneMeta } from './lexicon';
+import { proceduralSiteGenome, type SiteGenome } from './genome';
+import { sceneMeta } from './lexicon';
 import { TONE_ACCENT, sketchSVG, themeOf } from './sketch';
 import { miniStory } from './story';
 import type { SiteSpec, SlotProfile } from './types';
@@ -23,7 +24,7 @@ function sceneVariant(profile: SlotProfile, sceneId: string, uid: string): strin
   return sketchSVG(p, { quality: 'draft', uid });
 }
 
-function gallerySection(spec: SiteSpec, profile: SlotProfile): string {
+function gallerySection(spec: SiteSpec, profile: SlotProfile, gen: SiteGenome): string {
   const scenes = ['meadow', 'space', 'sea', 'castle', 'candy', 'snow'].filter(
     (s, i, arr) => arr.indexOf(s) === i,
   );
@@ -36,16 +37,17 @@ function gallerySection(spec: SiteSpec, profile: SlotProfile): string {
       </figure>`;
     })
     .join('');
-  return `<p class="lead">欢迎来到${esc(spec.heroLabel)}的奇幻画廊，一共 ${scenes.length} 幅作品！</p>
+  return `<p class="lead">${esc(gen.welcomeLine)}一共 ${scenes.length} 幅作品！</p>
     <div class="grid">${cards}</div>`;
 }
 
-function storySection(spec: SiteSpec, profile: SlotProfile): string {
-  const pages = miniStory(profile)
+function storySection(spec: SiteSpec, profile: SlotProfile, gen: SiteGenome): string {
+  const sceneIds = miniStory(profile).map((p) => p.sceneId);
+  const pages = gen.storyPages
     .map(
-      (pg, i) => `<section class="page card">
-        <div class="art">${sceneVariant(profile, pg.sceneId, `s${i}`)}</div>
-        <p class="page-text">${esc(pg.text)}</p>
+      (text, i) => `<section class="page card">
+        <div class="art">${sceneVariant(profile, sceneIds[i] ?? spec.sceneId, `s${i}`)}</div>
+        <p class="page-text">${esc(text)}</p>
         <span class="page-no">第 ${i + 1} 页</span>
       </section>`,
     )
@@ -54,27 +56,21 @@ function storySection(spec: SiteSpec, profile: SlotProfile): string {
     <div class="pages">${pages}</div>`;
 }
 
-function introSection(spec: SiteSpec, profile: SlotProfile): string {
-  const facts: [string, string][] = [
-    ['我叫', spec.heroLabel],
-    ['我住在', profile.scene?.label ?? '大草地'],
-    ['我的绝招', profile.key_detail?.label ?? '超级可爱'],
-    ['我的性格', TONE_LABEL[spec.tone]],
-  ];
-  if (profile.companion) facts.push(['我的好朋友', profile.companion.label]);
-  const rows = facts
+function introSection(spec: SiteSpec, profile: SlotProfile, gen: SiteGenome): string {
+  const rows = gen.facts
     .map(([k, v]) => `<li><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></li>`)
     .join('');
-  return `<div class="card intro-card">
+  return `<p class="lead">${esc(gen.welcomeLine)}</p>
+    <div class="card intro-card">
       <div class="art">${sceneVariant(profile, spec.sceneId, 'i0')}</div>
       <ul class="facts">${rows}</ul>
     </div>`;
 }
 
-function inviteSection(spec: SiteSpec, profile: SlotProfile): string {
+function inviteSection(spec: SiteSpec, profile: SlotProfile, gen: SiteGenome): string {
   return `<div class="card invite-card">
       <div class="art">${sceneVariant(profile, spec.sceneId, 'v0')}</div>
-      <p class="invite-big">请你来${esc(spec.heroLabel)}的派对！</p>
+      <p class="invite-big">${esc(gen.inviteLine)}</p>
       <ul class="facts">
         <li><span class="k">时间</span><span class="v">就在今天，马上出发！</span></li>
         <li><span class="k">地点</span><span class="v">${esc(profile.scene?.label ?? '大草地')}</span></li>
@@ -84,15 +80,16 @@ function inviteSection(spec: SiteSpec, profile: SlotProfile): string {
     </div>`;
 }
 
-/** 生成独立 HTML 网页（字符串可直接下载/分享） */
-export function buildSiteHTML(spec: SiteSpec, profile: SlotProfile): string {
+/** 生成独立 HTML 网页（字符串可直接下载/分享）。genome 缺省时现场程序化生成一份 */
+export function buildSiteHTML(spec: SiteSpec, profile: SlotProfile, genome?: SiteGenome | null): string {
   const accent = TONE_ACCENT[spec.tone];
   const theme = themeOf(spec.sceneId);
+  const gen = genome ?? proceduralSiteGenome(profile);
   const body =
-    spec.kind === 'gallery' ? gallerySection(spec, profile)
-    : spec.kind === 'story' ? storySection(spec, profile)
-    : spec.kind === 'intro' ? introSection(spec, profile)
-    : inviteSection(spec, profile);
+    spec.kind === 'gallery' ? gallerySection(spec, profile, gen)
+    : spec.kind === 'story' ? storySection(spec, profile, gen)
+    : spec.kind === 'intro' ? introSection(spec, profile, gen)
+    : inviteSection(spec, profile, gen);
 
   return `<!doctype html>
 <html lang="zh-CN">

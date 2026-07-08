@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { AccessoryId } from '../art/characters';
 import { IconArrow, IconGamepad, IconHome, IconMic, IconPencil, IconPlay, IconReplay, IconSparkle, IconTap } from '../art/icons';
 import { GameRuntime, effectButtonLabel, loadSprites, type SpriteSet } from '../engine/game';
+import type { GameGenome } from '../engine/genome';
 import type { Suggestion } from '../engine/suggest';
 import type { GameSpec } from '../engine/types';
 import { DressUp, SuggestChip } from './bits';
@@ -12,6 +13,7 @@ import { DressUp, SuggestChip } from './bits';
 export function PlayStage(props: {
   spec: GameSpec;
   won: boolean;
+  genome: GameGenome | null;
   suggestion: Suggestion | null;
   onWin: () => void;
   onNextLevel: (level: number) => void;
@@ -45,11 +47,14 @@ export function PlayStage(props: {
     const runSpec: GameSpec = duel
       ? { ...spec, mechanic: 'race', mechanicExtra: null, effect: null }
       : spec;
-    const rt = new GameRuntime(canvasRef.current, runSpec, sprites, { onWin }, duel ? 1 : level, duel);
+    const rt = new GameRuntime(
+      canvasRef.current, runSpec, sprites, { onWin }, duel ? 1 : level, duel,
+      props.genome ?? undefined,
+    );
     runtimeRef.current = rt;
     rt.start();
     return () => { rt.destroy(); runtimeRef.current = null; };
-  }, [started, sprites, spec, onWin, round, level, duel]);
+  }, [started, sprites, spec, onWin, round, level, duel, props.genome]);
 
   const hold = (c: 'left' | 'right' | 'action') => ({
     onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); runtimeRef.current?.press(c); },
