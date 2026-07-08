@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { GameState, LifePack } from '../engine/types'
 import { drawEndingCard } from './endingCard'
+import { leaderboardEnabled, savedNickname, submitScore } from '../meta/leaderboard'
 
 export function EndingScreen(props: {
   pack: LifePack
@@ -11,6 +12,24 @@ export function EndingScreen(props: {
   const holderRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const ending = state.ending!
+  const [nickname, setNickname] = useState(savedNickname())
+  const [boardStatus, setBoardStatus] = useState<'idle' | 'sending' | 'done' | 'fail'>('idle')
+
+  const submitToBoard = async () => {
+    if (boardStatus === 'sending' || boardStatus === 'done') return
+    setBoardStatus('sending')
+    const ok = await submitScore(nickname, {
+      date: Date.now(),
+      packId: state.packId,
+      characterId: state.characterId,
+      endingId: ending.id,
+      endingTitle: ending.title,
+      grade: ending.grade,
+      turns: state.turn,
+      final: state.stats[pack.chartStat] ?? 0,
+    })
+    setBoardStatus(ok ? 'done' : 'fail')
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -52,6 +71,28 @@ export function EndingScreen(props: {
         <button className="btn big" onClick={onRestart}>
           再活一次
         </button>
+        {leaderboardEnabled() && (
+          <div className="board-submit">
+            <input
+              className="board-name"
+              maxLength={16}
+              placeholder="你的名号（上全球榜用）"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              disabled={boardStatus === 'done'}
+            />
+            <button
+              className="btn"
+              disabled={!nickname.trim() || boardStatus === 'sending' || boardStatus === 'done'}
+              onClick={() => void submitToBoard()}
+            >
+              {boardStatus === 'idle' && '上榜'}
+              {boardStatus === 'sending' && '提交中…'}
+              {boardStatus === 'done' && '已上榜'}
+              {boardStatus === 'fail' && '重试'}
+            </button>
+          </div>
+        )}
       </div>
 
       <section className="journal ending-journal">

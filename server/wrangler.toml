@@ -1,0 +1,9 @@
+name = "fableunion-leaderboard"
+main = "leaderboard-worker.js"
+compatibility_date = "2026-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fableunion-leaderboard"
+# wrangler d1 create fableunion-leaderboard 之后，把返回的 id 填在这里
+database_id = "REPLACE_ME"

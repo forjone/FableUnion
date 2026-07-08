@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import type { LifePack } from '../engine/types'
 import type { Profile } from '../meta/profile'
 import { bestGrade, topRuns } from '../meta/profile'
+import { fetchTop, leaderboardEnabled, type BoardEntry } from '../meta/leaderboard'
 import { Icon } from './icons'
 
 /** 图鉴与战绩：结局图鉴、里程碑图鉴、本地榜单 */
@@ -15,6 +17,16 @@ export function CodexScreen(props: { pack: LifePack; profile: Profile; onBack: (
   const best = bestGrade(profile)
   const top = topRuns(profile, 5)
   const charName = (id: string) => pack.characters.find((c) => c.id === id)?.name ?? id
+  const [board, setBoard] = useState<BoardEntry[] | null>(null)
+  const [boardLoading, setBoardLoading] = useState(leaderboardEnabled())
+
+  useEffect(() => {
+    if (!leaderboardEnabled()) return
+    void fetchTop(20).then((entries) => {
+      setBoard(entries)
+      setBoardLoading(false)
+    })
+  }, [])
 
   return (
     <div className="screen codex-screen">
@@ -73,6 +85,37 @@ export function CodexScreen(props: { pack: LifePack; profile: Profile; onBack: (
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {leaderboardEnabled() && (
+        <section>
+          <h2>全球榜</h2>
+          {boardLoading && <p className="board-hint">加载中…</p>}
+          {!boardLoading && !board && <p className="board-hint">全球榜暂时连不上，稍后再来看看。</p>}
+          {!boardLoading && board && board.length === 0 && (
+            <p className="board-hint">榜上还空着——第一个名字为什么不能是你？</p>
+          )}
+          {!boardLoading && board && board.length > 0 && (
+            <ul className="record-list">
+              {board.map((r, i) => (
+                <li key={r.date + r.name + i} className="record-row">
+                  <span className="record-rank">{i + 1}</span>
+                  <span className="record-main">
+                    {r.name}
+                    <span className="record-sub">
+                      {r.endingTitle} · {charName(r.characterId)} · {r.turns} {pack.turnUnit}
+                    </span>
+                  </span>
+                  <span className={'grade-medal small grade-' + r.grade}>{r.grade}</span>
+                  <span className="record-final">
+                    {chartDef?.unit}
+                    {r.final >= 100 ? Math.round(r.final) : r.final.toFixed(2)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 

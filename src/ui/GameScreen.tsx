@@ -8,6 +8,7 @@ import { Buddy, baseEmotion, pickQuip, EMOTION_LABEL, type Emotion } from './Bud
 import { playSfx, soundEnabled, setSoundEnabled } from './sound'
 
 const ONBOARD_KEY = 'fableunion.onboarded'
+const FAST_KEY = 'fableunion.fastmode'
 
 const ONBOARD_SLIDES = [
   {
@@ -63,6 +64,7 @@ export function GameScreen(props: {
   const [menuOpen, setMenuOpen] = useState(false)
   const [confirmAbandon, setConfirmAbandon] = useState(false)
   const [sound, setSound] = useState(soundEnabled())
+  const [fastMode, setFastMode] = useState(() => localStorage.getItem(FAST_KEY) === 'on')
   const [onboardStep, setOnboardStep] = useState(() =>
     localStorage.getItem(ONBOARD_KEY) ? -1 : 0,
   )
@@ -133,8 +135,14 @@ export function GameScreen(props: {
     playSfx('confirm')
     const prev = state
     const next = endTurn(prev, pack, chosen, rng)
-    const entries = next.log.slice(prev.log.length)
-    setWeekReport({ week: prev.turn, entries, deltas: diffStats(pack, prev, next) })
+    const deltas = diffStats(pack, prev, next)
+    if (fastMode) {
+      // 快速结算：跳过周报弹窗，情绪反应直接触发，事件照常弹出
+      triggerBurst(deltas)
+    } else {
+      const entries = next.log.slice(prev.log.length)
+      setWeekReport({ week: prev.turn, entries, deltas })
+    }
     setState(next)
     setChosen([])
   }
@@ -419,6 +427,17 @@ export function GameScreen(props: {
               }}
             >
               音效：{sound ? '开' : '关'}
+            </button>
+            <button
+              className="btn big"
+              onClick={() => {
+                const next = !fastMode
+                localStorage.setItem(FAST_KEY, next ? 'on' : 'off')
+                setFastMode(next)
+              }}
+            >
+              快速结算：{fastMode ? '开' : '关'}
+              <span className="settings-note">开启后跳过每周结算弹窗，事件照常</span>
             </button>
             {!confirmAbandon ? (
               <button className="btn big danger-btn" onClick={() => setConfirmAbandon(true)}>

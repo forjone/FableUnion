@@ -26,7 +26,24 @@ npm run test:e2e  # 真实浏览器端到端冒烟（先 build；可用 FABLE_CH
 - 周结算、事件结果、里程碑全屏演出、WebAudio 合成音效
 - 结局图鉴 / 成就图鉴 / 本地最佳战绩榜，驱动重开
 - Canvas 结局分享卡（含小人的最终状态与收入曲线）
-- 新手引导、设置（音效开关 / 放弃本局）、本地存档续玩（带版本号）
+- 新手引导、设置（音效 / 快速结算 / 放弃本局）、本地存档续玩（带版本号）
+- 全球排行榜（可选）：结局页一键上榜、图鉴页查看全球前 20
+
+## 全球排行榜部署（可选）
+
+后端是一个 Cloudflare Worker + D1，代码在 [`server/`](server/)：
+
+1. `wrangler d1 create fableunion-leaderboard`，把 database_id 填进 `server/wrangler.toml`
+2. `wrangler d1 execute fableunion-leaderboard --file=server/schema.sql --remote`
+3. `cd server && wrangler deploy`
+4. 仓库 Settings → Secrets and variables → Actions → **Variables** 新增
+   `VITE_LEADERBOARD_URL = https://<你的 worker 域名>`，下次部署自动启用。
+   未配置时游戏保持纯本地运行，榜单入口不显示。
+
+## 立绘资源
+
+角色高清原稿在 `images/`；线上使用的是 `public/images/buddies/` 下的 512px WebP
+（约 30KB/张）。原稿更新后运行 `node scripts/optimize-buddies.mjs` 重新生成。
 
 ## 架构
 

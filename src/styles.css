@@ -1475,3 +1475,34 @@ svg {
   color: var(--text-dim);
   font-size: 0.8rem;
 }
+
+/* ---------- 全球榜 / 快速结算 ---------- */
+.board-submit {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.board-name {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--line-bright);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 10px 14px;
+  font-size: 0.95rem;
+}
+.board-name:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.board-hint {
+  color: var(--text-dim);
+  font-size: 0.88rem;
+}
+.settings-note {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-weight: 400;
+}

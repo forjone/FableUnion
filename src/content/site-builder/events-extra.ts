@@ -322,6 +322,55 @@ export const extraEvents: EventCard[] = [
     ],
   },
 
+  {
+    id: 'oldDomainOffer',
+    pool: 'daily',
+    title: '域名询价',
+    text: '有陌生人发邮件问你囤的一个闲置域名卖不卖，出价 $80。',
+    valence: 1,
+    once: true,
+    choices: [
+      { text: '卖了，回点血', effects: [{ stat: 'cash', add: 550 }, { stat: 'mood', add: 3 }], resultText: '九块九进，八十刀出。这可能是你今年回报率最高的一笔投资。' },
+      { text: '不卖，它值更多', effects: [{ stat: 'mood', add: 1 }], resultText: '你回了句 "make me an offer I can\'t refuse"。对方没再回。' },
+    ],
+  },
+  {
+    id: 'changelogDay',
+    pool: 'daily',
+    title: '更新日志',
+    text: '你翻了翻自己站的更新日志，密密麻麻已经写了七十多条。',
+    valence: 1,
+    cooldown: 30,
+    conditions: { flag: 'siteLive', is: true },
+    choices: [
+      { text: '一条条读下去', effects: [{ stat: 'mood', add: 4 }], resultText: '没有一条是惊天动地的。但七十多个「小改进」摞起来，就是今天的它。' },
+    ],
+  },
+  {
+    id: 'sundayGuilt',
+    pool: 'daily',
+    title: '休息的负罪感',
+    text: '难得一个什么都没干的周日，晚上你却开始心慌：别人是不是又跑到前面去了？',
+    valence: 0,
+    cooldown: 20,
+    choices: [
+      { text: '休息也是生产力', effects: [{ stat: 'mood', add: 3 }], resultText: '马拉松没有人全程冲刺。你关掉手机，睡了个好觉。' },
+      { text: '爬起来干两小时', effects: [{ stat: 'product', add: 1 }, { stat: 'mood', add: -3 }], resultText: '干完你并没有踏实多少。负罪感这东西，喂不饱的。' },
+    ],
+  },
+  {
+    id: 'niceDm',
+    pool: 'daily',
+    title: '同路人的私信',
+    text: '一个同样在做站的网友私信你：「看你更新了半年了，想说一声，加油。」',
+    valence: 1,
+    cooldown: 25,
+    conditions: { flag: 'siteLive', is: true },
+    choices: [
+      { text: '回一句「一起加油」', effects: [{ stat: 'mood', add: 5 }], resultText: '这条路上没有对手，只有各自赶路时互相照亮的人。' },
+    ],
+  },
+
   // ---------- 命运 ----------
   {
     id: 'devConference',
