@@ -6,7 +6,10 @@ export const fateEvents: EventCard[] = [
     id: 'googleUpdate',
     pool: 'fate',
     title: 'Google 核心算法更新',
-    text: '半夜社群炸了：Google 推送核心更新。你打开后台，流量曲线像被人踩了一脚。',
+    text: [
+      { text: '半夜社群炸了：Google 推送核心更新。你打开后台，流量曲线像被人踩了一脚。', conditions: { count: 'event.googleUpdate', lte: 0 } },
+      { text: '又一轮核心更新。社群里新人在哀嚎，你平静地打开后台——该来的总会来，慌解决不了排名。', conditions: { count: 'event.googleUpdate', gte: 1 } },
+    ],
     valence: -1,
     cooldown: 20,
     conditions: { all: [{ flag: 'siteLive', is: true }, { stat: 'income', gte: 0.5 }] },
@@ -18,7 +21,10 @@ export const fateEvents: EventCard[] = [
           { stat: 'income', mul: 0.8 },
           { stat: 'mood', add: -5 },
         ],
-        resultText: '三天没怎么睡。流量止住了下滑，你对算法的理解上了一个台阶。',
+        resultText: [
+          { text: '三天没怎么睡。流量止住了下滑，你对算法的理解上了一个台阶。', conditions: { count: 'event.googleUpdate', lte: 1 } },
+          { text: '这次你只用了一晚就定位了受影响的页面组。经验这东西，都是上次熬的夜变的。', conditions: { count: 'event.googleUpdate', gte: 2 } },
+        ],
       },
       {
         text: '摆烂，等它自己恢复',

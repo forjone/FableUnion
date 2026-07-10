@@ -14,6 +14,20 @@ export type Condition =
   | { stat: string; gte?: number; lte?: number; gt?: number; lt?: number }
   | { flag: string; is: boolean }
   | { turn: { gte?: number; lte?: number } }
+  /** 重复计数：task.<id>（尝试）/ task.<id>.ok（成功）/ event.<id>（经历） */
+  | { count: string; gte?: number; lte?: number }
+
+// ---------- 多态文案 ----------
+
+/** 带条件的文案变体：同一件事在不同人生阶段读起来不一样 */
+export interface TextVariant {
+  text: string
+  conditions?: Condition
+  weight?: number
+}
+
+/** 纯字符串，或按条件/权重挑选的变体列表 */
+export type FlexText = string | ReadonlyArray<string | TextVariant>
 
 // ---------- 效果 ----------
 
@@ -76,14 +90,14 @@ export interface EventChoice {
   /** 不满足时该选项置灰并显示条件提示 */
   conditions?: Condition
   effects: Effect[]
-  resultText: string
+  resultText: FlexText
 }
 
 export interface EventCard {
   id: string
   pool: EventPool
   title: string
-  text: string
+  text: FlexText
   weight?: number
   valence?: Valence
   conditions?: Condition
@@ -111,8 +125,10 @@ export interface Task {
   baseSuccess: number
   /** 属性加成：p += stats[stat] * factor */
   successBonus?: { stat: string; factor: number }[]
-  success: { effects: Effect[]; log: string }
-  fail?: { effects: Effect[]; log: string }
+  success: { effects: Effect[]; log: FlexText }
+  fail?: { effects: Effect[]; log: FlexText }
+  /** 熟练度质变：累计成功次数达到阈值时的一次性突破 */
+  mastery?: { count: number; log: string; effects?: Effect[] }[]
 }
 
 // ---------- 里程碑 / 结局 ----------
@@ -181,6 +197,8 @@ export interface PendingEvent {
   eventId: string
   /** wing 未接住时为 true，仅展示 miss 文案 */
   missed: boolean
+  /** 抽取时按当前状态解析出的正文（多态文案在此定格） */
+  resolvedText: string
 }
 
 export interface EndingResult {
@@ -198,6 +216,8 @@ export interface GameState {
   phase: Phase
   stats: Record<string, number>
   flags: Record<string, boolean>
+  /** 重复计数（task.<id> / task.<id>.ok / event.<id>），驱动量变到质变 */
+  counts: Record<string, number>
   usedOnce: Record<string, true>
   cooldowns: Record<string, number>
   chosenTasks: string[]

@@ -125,6 +125,40 @@ describe('director', () => {
   })
 })
 
+describe('progression (量变到质变)', () => {
+  it('resolveText picks variants by conditions', async () => {
+    const { resolveText } = await import('./conditions')
+    const s = stateOf(testPack())
+    s.counts['task.work'] = 5
+    const flex = [
+      { text: '第一次', conditions: { count: 'task.work', lte: 2 } as const },
+      { text: '熟练了', conditions: { count: 'task.work', gte: 3 } as const },
+    ]
+    expect(resolveText(flex, s, createRng(1))).toBe('熟练了')
+    s.counts['task.work'] = 1
+    expect(resolveText(flex, s, createRng(1))).toBe('第一次')
+    expect(resolveText('普通文本', s, createRng(1))).toBe('普通文本')
+  })
+
+  it('counts repetitions and fires mastery once at threshold', () => {
+    const pack = testPack()
+    pack.tasks[0].mastery = [
+      { count: 2, log: '质变：熟练工', effects: [{ stat: 'mood', add: 5 }] },
+    ]
+    const rng = createRng(11)
+    let s = stateOf(pack)
+    for (let i = 0; i < 3; i++) {
+      s = endTurn(s, pack, ['work'], rng)
+      if (s.phase === 'event') s = resolveChoice(s, pack, 0, rng)
+    }
+    expect(s.counts['task.work']).toBe(3)
+    expect(s.counts['task.work.ok']).toBe(3)
+    expect(s.counts['event.nothing']).toBeGreaterThanOrEqual(1)
+    // 质变只在恰好踩到阈值那次触发一次
+    expect(s.log.filter((l) => l.text === '质变：熟练工')).toHaveLength(1)
+  })
+})
+
 describe('game flow', () => {
   it('runs task → upkeep → event → next turn', () => {
     const pack = testPack()

@@ -14,6 +14,12 @@ export function evalCondition(cond: Condition | undefined, state: GameState): bo
     return true
   }
   if ('flag' in cond) return (state.flags[cond.flag] ?? false) === cond.is
+  if ('count' in cond) {
+    const v = state.counts?.[cond.count] ?? 0
+    if (cond.gte !== undefined && !(v >= cond.gte)) return false
+    if (cond.lte !== undefined && !(v <= cond.lte)) return false
+    return true
+  }
   if ('turn' in cond) {
     if (cond.turn.gte !== undefined && !(state.turn >= cond.turn.gte)) return false
     if (cond.turn.lte !== undefined && !(state.turn <= cond.turn.lte)) return false
@@ -36,6 +42,26 @@ export function describeCondition(cond: Condition, statName: (id: string) => str
     return `${statName(cond.stat)}${parts.join('且')}`
   }
   if ('flag' in cond) return cond.is ? '需要特定经历' : '与已有经历冲突'
+  if ('count' in cond) return '需要更多历练'
   if ('turn' in cond) return '时机未到'
   return ''
+}
+
+/** 解析多态文案：按条件筛选变体，再按权重随机挑一条 */
+export function resolveText(
+  flex: import('./types').FlexText,
+  state: GameState,
+  rng: () => number,
+): string {
+  if (typeof flex === 'string') return flex
+  const all = flex.map((v) => (typeof v === 'string' ? { text: v } : v))
+  const eligible = all.filter((v) => evalCondition(v.conditions, state))
+  const pool = eligible.length > 0 ? eligible : all.slice(0, 1)
+  const total = pool.reduce((s, v) => s + (v.weight ?? 1), 0)
+  let roll = rng() * total
+  for (const v of pool) {
+    roll -= v.weight ?? 1
+    if (roll < 0) return v.text
+  }
+  return pool[pool.length - 1]?.text ?? ''
 }

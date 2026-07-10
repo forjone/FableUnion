@@ -22,7 +22,10 @@ export const dailyEvents: EventCard[] = [
     id: 'serverDown',
     pool: 'daily',
     title: '服务器宕机',
-    text: '凌晨两点，监控告警把你吵醒：网站挂了。',
+    text: [
+      { text: '凌晨两点，监控告警把你吵醒：网站挂了。', conditions: { count: 'event.serverDown', lte: 0 } },
+      { text: '熟悉的告警声又响了。你叹了口气，闭着眼都知道该先查哪个服务。', conditions: { count: 'event.serverDown', gte: 1 } },
+    ],
     valence: -1,
     cooldown: 10,
     conditions: { flag: 'siteLive', is: true },
@@ -30,7 +33,10 @@ export const dailyEvents: EventCard[] = [
       {
         text: '爬起来修',
         effects: [{ stat: 'mood', add: -3 }, { stat: 'dev', add: 1 }],
-        resultText: '折腾到四点恢复了。你顺手给自己加了个自动重启脚本。',
+        resultText: [
+          { text: '折腾到四点恢复了。你顺手给自己加了个自动重启脚本。', conditions: { count: 'event.serverDown', lte: 1 } },
+          { text: '五分钟定位，十分钟恢复，顺手补了条告警规则。熟练得让人心疼。', conditions: { count: 'event.serverDown', gte: 2 } },
+        ],
       },
       {
         text: '睡醒再说',
@@ -59,7 +65,11 @@ export const dailyEvents: EventCard[] = [
     id: 'exColleague',
     pool: 'daily',
     title: '前同事的朋友圈',
-    text: '刷到前同事晒工牌：他升 P7 了，配文「感恩团队」。',
+    text: [
+      { text: '刷到前同事晒工牌：他升 P7 了，配文「感恩团队」。', conditions: { stat: 'income', lte: 0.99 } },
+      { text: '前同事又晒了年终奖截图。你看了看自己后台里那几美元——各有各的活法吧。', conditions: { stat: 'income', gte: 1, lte: 9.99 } },
+      { text: '前同事晒出升职朋友圈。你笑着点了个赞——你现在的收入曲线，已经不需要和任何人比较了。', conditions: { stat: 'income', gte: 10 } },
+    ],
     valence: -1,
     cooldown: 12,
     characters: ['programmer'],
@@ -67,7 +77,10 @@ export const dailyEvents: EventCard[] = [
       {
         text: '点个赞，继续写代码',
         effects: [{ stat: 'mood', add: -4 }],
-        resultText: '你盯着自己后台里 $0.37 的日收入，深吸了一口气。',
+        resultText: [
+          { text: '你盯着自己后台里可怜的日收入，深吸了一口气。', conditions: { stat: 'income', lte: 9.99 } },
+          { text: '你平静地关掉朋友圈，继续写代码。风水轮流转这件事，不必说出口。', conditions: { stat: 'income', gte: 10 } },
+        ],
       },
       {
         text: '屏蔽朋友圈一个月',
@@ -80,7 +93,10 @@ export const dailyEvents: EventCard[] = [
     id: 'twitterRich',
     pool: 'daily',
     title: '别人的日入千刀',
-    text: '推特上又有人晒图：一个比你的站丑十倍的工具，MRR $30k。',
+    text: [
+      { text: '推特上又有人晒图：一个比你的站丑十倍的工具，MRR $30k。', conditions: { stat: 'income', lte: 0.99 } },
+      { text: '又刷到同行晒 MRR。这次你注意到的不是数字，而是他的定价策略。', conditions: { stat: 'income', gte: 1 } },
+    ],
     valence: 0,
     cooldown: 10,
     choices: [
@@ -175,7 +191,10 @@ export const dailyEvents: EventCard[] = [
       {
         text: '去，人不能只有事业',
         effects: [{ stat: 'cash', add: -300 }, { stat: 'mood', add: 6 }],
-        resultText: '被问「最近在忙啥」的时候你犹豫了一下，还是说了实话。他们没笑。',
+        resultText: [
+          { text: '被问「最近在忙啥」的时候你犹豫了一下，还是说了实话。他们没笑。', conditions: { stat: 'income', lte: 9.99 } },
+          { text: '被问「在忙啥」，你直接打开后台给他们看。桌上安静了几秒，然后全是「卧槽牛逼」。', conditions: { stat: 'income', gte: 10 } },
+        ],
       },
       {
         text: '不去，省钱赶进度',
@@ -188,14 +207,21 @@ export const dailyEvents: EventCard[] = [
     id: 'insomnia',
     pool: 'daily',
     title: '失眠',
-    text: '凌晨三点，你睁着眼睛在算：存款还能撑几个月。',
+    text: [
+      { text: '凌晨三点，天花板上全是没做完的待办和没赚到的钱。', conditions: { stat: 'mood', lte: 35 } },
+      { text: '凌晨三点，你睁着眼睛在算：存款还能撑几个月。', conditions: { all: [{ stat: 'mood', gte: 36 }, { stat: 'income', lte: 9.99 }] } },
+      { text: '凌晨三点醒来，你习惯性摸过手机看了眼海外订单——有三单。你笑了一下，翻身睡去。', conditions: { stat: 'income', gte: 10 } },
+    ],
     valence: -1,
     cooldown: 9,
     choices: [
       {
         text: '起来看后台数据',
         effects: [{ stat: 'mood', add: -3 }],
-        resultText: '数据没变。你看了半小时，像看一口不会开的锅。',
+        resultText: [
+          { text: '数据没变。你看了半小时，像看一口不会开的锅。', conditions: { stat: 'income', lte: 9.99 } },
+          { text: '看着缓缓上涨的曲线，你反而安心地困了。就是明早会后悔现在没睡。', conditions: { stat: 'income', gte: 10 } },
+        ],
       },
     ],
   },
@@ -269,7 +295,10 @@ export const dailyEvents: EventCard[] = [
     id: 'momCall',
     pool: 'daily',
     title: '妈妈的电话',
-    text: '「工作顺利吗？」妈妈的声音一如既往。你还没告诉她你辞职了。',
+    text: [
+      { text: '「工作顺利吗？」妈妈的声音一如既往。你还没告诉她你辞职了。', conditions: { flag: 'familyKnows', is: false } },
+      { text: '「你那个网站怎么样了？」妈妈现在会主动问了，虽然她还是说不清你在做什么。', conditions: { flag: 'familyKnows', is: true } },
+    ],
     valence: 0,
     cooldown: 12,
     characters: ['programmer'],

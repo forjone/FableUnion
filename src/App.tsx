@@ -24,6 +24,7 @@ function loadSave(): GameState | null {
     if (!raw) return null
     const file = JSON.parse(raw) as SaveFile
     if (file.v !== SAVE_VERSION || file.state.packId !== siteBuilderPack.id) return null
+    file.state.counts ??= {} // 兼容加入计数系统前的存档
     return file.state
   } catch {
     return null

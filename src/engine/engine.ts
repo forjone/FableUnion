@@ -6,7 +6,7 @@ import type {
   Rng,
   Task,
 } from './types'
-import { evalCondition } from './conditions'
+import { evalCondition, resolveText } from './conditions'
 import { applyEffects } from './effects'
 import { directedWeight, recordValence } from './director'
 import { pickWeighted } from './rng'
@@ -42,6 +42,7 @@ export function createGame(pack: LifePack, characterId: string): GameState {
     phase: 'plan',
     stats,
     flags,
+    counts: {},
     usedOnce: {},
     cooldowns: {},
     chosenTasks: [],
@@ -117,12 +118,25 @@ export function endTurn(
     if (task.once) state.usedOnce[task.id] = true
     if (task.cooldown) state.cooldowns[task.id] = state.turn + task.cooldown
 
+    const tryKey = `task.${task.id}`
+    state.counts[tryKey] = (state.counts[tryKey] ?? 0) + 1
     let p = task.baseSuccess
     for (const b of task.successBonus ?? []) p += (state.stats[b.stat] ?? 0) * b.factor
     const ok = rng() < p
+    const okKey = `task.${task.id}.ok`
+    if (ok) state.counts[okKey] = (state.counts[okKey] ?? 0) + 1
     const outcome = ok ? task.success : (task.fail ?? task.success)
     applyEffects(state, pack, outcome.effects, rng, 'task')
-    state.log.push({ turn: state.turn, text: outcome.log, kind: 'task' })
+    state.log.push({ turn: state.turn, text: resolveText(outcome.log, state, rng), kind: 'task' })
+    // 质变时刻：累计成功次数踩到阈值
+    if (ok) {
+      for (const tier of task.mastery ?? []) {
+        if (state.counts[okKey] === tier.count) {
+          applyEffects(state, pack, tier.effects ?? [], rng, 'milestone')
+          state.log.push({ turn: state.turn, text: tier.log, kind: 'milestone' })
+        }
+      }
+    }
   }
 
   // 2. 周常收支（角色可覆盖，如不同生活成本）
@@ -135,12 +149,12 @@ export function endTurn(
   const dailyPool = eligibleEvents(state, pack, 'daily')
   const mainPool = fatePool.length > 0 && rng() < FATE_CHANCE ? fatePool : dailyPool
   const main = pickWeighted(rng, mainPool, (e) => directedWeight(state, e))
-  if (main) queue.push(markDrawn(state, main))
+  if (main) queue.push(markDrawn(state, main, rng))
   if (rng() < pack.wingChance) {
     const wing = pickWeighted(rng, eligibleEvents(state, pack, 'wing'), (e) =>
       directedWeight(state, e),
     )
-    if (wing) queue.push(markDrawn(state, wing))
+    if (wing) queue.push(markDrawn(state, wing, rng))
   }
 
   state.pendingEvents = queue
@@ -150,14 +164,14 @@ export function endTurn(
   return state
 }
 
-function markDrawn(state: GameState, event: EventCard): PendingEvent {
+function markDrawn(state: GameState, event: EventCard, rng: Rng): PendingEvent {
   if (event.once) state.usedOnce[event.id] = true
   if (event.cooldown) state.cooldowns[event.id] = state.turn + event.cooldown
   const missed =
     event.pool === 'wing' &&
     !!event.wingCatch &&
     !evalCondition(event.wingCatch.conditions, state)
-  return { eventId: event.id, missed }
+  return { eventId: event.id, missed, resolvedText: resolveText(event.text, state, rng) }
 }
 
 /** 玩家在当前事件上做出选择（missed 的 wing 事件 choiceIndex 传 -1） */
@@ -171,6 +185,8 @@ export function resolveChoice(
   const pending = state.pendingEvents[0]
   if (state.phase !== 'event' || !pending) return state
   const event = getEvent(pack, pending.eventId)
+  const evKey = `event.${event.id}`
+  state.counts[evKey] = (state.counts[evKey] ?? 0) + 1
 
   if (pending.missed && event.wingCatch) {
     applyEffects(state, pack, event.wingCatch.missEffects ?? [], rng, 'event')
@@ -187,7 +203,7 @@ export function resolveChoice(
     applyEffects(state, pack, choice.effects, rng, 'event')
     state.log.push({
       turn: state.turn,
-      text: `${event.title}：${choice.resultText}`,
+      text: `${event.title}：${resolveText(choice.resultText, state, rng)}`,
       kind: 'event',
     })
     recordValence(state, event.valence ?? 0)

@@ -153,9 +153,13 @@ export function GameScreen(props: {
     if (!pending) return
     const event = getEvent(pack, pending.eventId)
     const next = resolveChoice(prev, pack, index, rng)
+    // 引擎已把解析后的结果文案写入日志，直接取用，保证弹窗与心路历程一致
+    const lastLog = next.log[next.log.length - 1]?.text ?? ''
     const text = pending.missed
       ? '机会从指缝间溜走了。'
-      : event.choices[index]?.resultText ?? ''
+      : lastLog.startsWith(`${event.title}：`)
+        ? lastLog.slice(event.title.length + 1)
+        : lastLog
     setEventResult({ title: event.title, pool: event.pool, text, deltas: diffStats(pack, prev, next) })
     setState(next)
   }
@@ -345,7 +349,7 @@ export function GameScreen(props: {
             <p className="event-text">
               {pending.missed && pendingEvent.wingCatch
                 ? pendingEvent.wingCatch.missText
-                : pendingEvent.text}
+                : pending.resolvedText}
             </p>
             <div className="choices">
               {pending.missed ? (
