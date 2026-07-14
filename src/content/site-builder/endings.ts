@@ -8,6 +8,7 @@ export const endings: Ending[] = [
   // ---- 即时结局（每回合判定） ----
   {
     id: 'soldSite',
+    hint: '有人会为你的心血开出价码——如果它值得。',
     title: '卖站上岸',
     icon: 'flag',
     grade: 'S',
@@ -18,6 +19,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'legend',
+    hint: '传说不靠运气，靠把每一张风口都接住。',
     title: '传说中的那个人',
     icon: 'sparkle',
     grade: 'S',
@@ -28,6 +30,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'backToJob',
+    hint: '回头路也是路。',
     title: '重返职场，但你已不同',
     icon: 'briefcase',
     grade: 'B',
@@ -38,6 +41,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'brokeButSkilled',
+    hint: '钱包空了的时候，看看身上长出了什么。',
     title: '输了钱包，赢了本事',
     icon: 'book',
     grade: 'C',
@@ -53,6 +57,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'broke',
+    hint: '弹药是有限的。',
     title: '弹尽粮绝',
     icon: 'skull',
     grade: 'D',
@@ -63,6 +68,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'quitBeforeDawn',
+    hint: '最难熬的，是快亮的时候。',
     title: '在黎明前放弃',
     icon: 'moon',
     grade: 'C',
@@ -73,6 +79,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'burnout',
+    hint: '别忘了照顾屏幕里那个小人。',
     title: '心态崩了',
     icon: 'mood',
     grade: 'D',
@@ -84,6 +91,7 @@ export const endings: Ending[] = [
 
   {
     id: 'agencyBoss',
+    hint: '手艺接得多了，会有人劝你把它变成生意。',
     title: '外包工作室老板',
     icon: 'briefcase',
     grade: 'B',
@@ -96,6 +104,7 @@ export const endings: Ending[] = [
   // ---- 终局结算（回合耗尽时判定） ----
   {
     id: 'communityLight',
+    hint: '被看见之后，也让别人被看见。',
     title: '圈子里的那盏灯',
     icon: 'sparkle',
     grade: 'A',
@@ -107,7 +116,41 @@ export const endings: Ending[] = [
     text: '两年，日入 {stat.income} 刀——不是圈里最高的，但你的帖子被新人一遍遍翻出来读。有人靠你的复盘赚到了第一刀，跑来谢你。你活成了自己出发时想遇到的那个人。',
   },
   {
+    id: 'momLeader',
+    hint: '你的用户，也许就在你每天的生活里。',
+    title: '妈妈圈的主理人',
+    icon: 'mood',
+    grade: 'A',
+    priority: 90,
+    when: 'final',
+    conditions: { all: [{ flag: 'momLeader', is: true }, { stat: 'income', gte: 3 }] },
+    text: '两年，日入 {stat.income} 刀。但更值钱的是那个几千人的妈妈社群——你把「带娃的碎片时间」织成了一张网。当年那个想挣回名字的人，如今是大家口中的「主理人本人」。',
+  },
+  {
+    id: 'townPioneer',
+    hint: '小城会记得第一个出发的人。',
+    title: '县城第一站长',
+    icon: 'compass',
+    grade: 'A',
+    priority: 91,
+    when: 'final',
+    conditions: { all: [{ flag: 'townMentor', is: true }, { stat: 'income', gte: 5 }] },
+    text: '两年，日入 {stat.income} 刀，全县独一份的职业。图书馆的「站长角」已经有七个人，最小的在读初二。这座没人聊出海的城市，因为你有了海的方向。',
+  },
+  {
+    id: 'gradIndie',
+    hint: '有一种毕业答辩，答的是自己的产品。',
+    title: '没投过一份简历',
+    icon: 'book',
+    grade: 'A',
+    priority: 92,
+    when: 'final',
+    conditions: { all: [{ flag: 'gradFree', is: true }, { stat: 'income', gte: 3 }] },
+    text: '日入 {stat.income} 刀。同学们在期盼转正的年纪，你已经给自己发了两年工资。毕业相册里你的一栏写着：自由职业者，雇主——自己。',
+  },
+  {
     id: 'salaryFree',
+    hint: '让睡后收入超过当年的日薪。',
     title: '工资自由',
     icon: 'income',
     grade: 'A',
@@ -118,6 +161,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'steadyTen',
+    hint: '细水长流地走完两年。',
     title: '十刀俱乐部',
     icon: 'trophy',
     grade: 'A',
@@ -128,6 +172,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'oneDollarLine',
+    hint: '从零到一，走完就赢了一半人。',
     title: '日入一刀，人生分界',
     icon: 'cash',
     grade: 'B',
@@ -138,6 +183,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'glimmer',
+    hint: '哪怕只有一点点。',
     title: '微光',
     icon: 'sparkle',
     grade: 'C',
@@ -148,6 +194,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'expensiveLesson',
+    hint: '有些学费不白交。',
     title: '两年学费',
     icon: 'book',
     grade: 'C',
@@ -158,6 +205,7 @@ export const endings: Ending[] = [
   },
   {
     id: 'longDream',
+    hint: '至少要真的试过。',
     title: '一场大梦',
     icon: 'moon',
     grade: 'D',

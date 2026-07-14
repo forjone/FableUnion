@@ -130,6 +130,7 @@ export function CodexScreen(props: { pack: LifePack; profile: Profile; onBack: (
                 <div className="codex-card-body">
                   <div className="codex-card-title">{seen ? e.title : '？？？'}</div>
                   {seen && <div className="codex-card-text">{blankTemplate(e.text)}</div>}
+                  {!seen && e.hint && <div className="codex-card-text codex-hint-text">线索：{e.hint}</div>}
                 </div>
               </div>
             )

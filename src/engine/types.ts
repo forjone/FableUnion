@@ -149,6 +149,8 @@ export interface Ending {
   title: string
   icon: string
   grade: EndingGrade
+  /** 图鉴中未解锁时展示的模糊线索 */
+  hint?: string
   /** 数字越小优先级越高，命中即停 */
   priority: number
   /** 触发时机：'immediate' 每回合检查；'final' 仅在回合耗尽时评价 */

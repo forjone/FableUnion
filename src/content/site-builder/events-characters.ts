@@ -237,4 +237,73 @@ export const characterEvents: EventCard[] = [
       { text: '不去，我的战场在线上', effects: [{ stat: 'mood', add: 3 }, { flag: 'determined', value: true }], resultText: '「互联网是平的，兄弟。」你说完这句，发小笑骂了一句，说等你混出来请客。' },
     ],
   },
+
+  // ---------- 角色专属质变链：岔路事件 ----------
+  {
+    id: 'momCommunityRise',
+    pool: 'fate',
+    title: '被推举的人',
+    text: '宝妈群里你成了「懂行的那个」。三个群主拉了个联盟群，第一件事就是@你：「姐妹，你来牵头吧。」',
+    valence: 1,
+    once: true,
+    characters: ['mom'],
+    conditions: { all: [{ count: 'event.momGroupBuy', gte: 1 }, { stat: 'income', gte: 1 }, { turn: { gte: 30 } }] },
+    choices: [
+      {
+        text: '接下来。妈妈们的需求我最懂',
+        effects: [{ flag: 'momLeader', value: true }, { stat: 'income', add: 0.5 }, { stat: 'mood', add: 8 }],
+        resultText: '你办起了社群周报，第一期就被转发了两百次。带娃人的时间是碎的，力量是整的。',
+      },
+      {
+        text: '心力有限，婉拒',
+        effects: [{ stat: 'mood', add: -2 }],
+        resultText: '你退出了联盟群。有些机会放下也不可惜——你的主线始终是自己的站。',
+      },
+    ],
+  },
+  {
+    id: 'stuGraduation',
+    pool: 'fate',
+    title: '毕业季',
+    text: '答辩、散伙饭、招聘会同时涌来。辅导员追着问：「你的三方协议呢？」你默默打开了自己网站的后台。',
+    valence: 0,
+    once: true,
+    characters: ['student'],
+    conditions: { all: [{ flag: 'siteLive', is: true }, { turn: { gte: 55 } }] },
+    choices: [
+      {
+        text: '把站写进简历，不投一份简历',
+        conditions: { stat: 'income', gte: 3 },
+        effects: [{ flag: 'gradFree', value: true }, { stat: 'mood', add: 10 }],
+        resultText: '答辩台上你展示了自己的收入曲线，老师们问的问题比评委还多。你毕业了，雇主是你自己。',
+      },
+      {
+        text: '先拿个 offer 保底，站继续做',
+        effects: [{ stat: 'cash', add: 3000 }, { stat: 'mood', add: 2 }],
+        resultText: '你签了个不坏的 offer。白天上班晚上做站——人生不是单选题。',
+      },
+    ],
+  },
+  {
+    id: 'townApprentice',
+    pool: 'fate',
+    title: '追出来的高中生',
+    text: '图书馆分享会上那个高中生又来了，这次他带着自己做的第一个网站，紧张得手心冒汗：「哥，你能带带我吗？」',
+    valence: 1,
+    once: true,
+    characters: ['smalltown'],
+    conditions: { all: [{ flag: 'audience', is: true }, { stat: 'income', gte: 5 }, { turn: { gte: 50 } }] },
+    choices: [
+      {
+        text: '带。把这座城的火种点起来',
+        effects: [{ flag: 'townMentor', value: true }, { stat: 'mood', add: 8 }],
+        resultText: '你们约定每周六在图书馆碰头。半年后，县城有了第一个「站长角」。',
+      },
+      {
+        text: '给他指条路，路要他自己走',
+        effects: [{ stat: 'mood', add: 3 }],
+        resultText: '你送了他一份自己整理的入门清单。有些帮助，点到为止才是尊重。',
+      },
+    ],
+  },
 ]

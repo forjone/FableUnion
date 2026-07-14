@@ -1506,3 +1506,9 @@ svg {
   color: var(--text-dim);
   font-weight: 400;
 }
+
+.codex-hint-text {
+  font-style: italic;
+  color: var(--accent);
+  opacity: 0.75;
+}
