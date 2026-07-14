@@ -82,7 +82,30 @@ export const endings: Ending[] = [
     text: '第 {turn} 周，你在一个普通的下午关掉了所有窗口，卸载了监控 App。不是所有故事都有高潮，有些故事教会你的是：先照顾好自己。',
   },
 
+  {
+    id: 'agencyBoss',
+    title: '外包工作室老板',
+    icon: 'briefcase',
+    grade: 'B',
+    priority: 32,
+    when: 'immediate',
+    conditions: { flag: 'agencyBoss', is: true },
+    text: '第 {turn} 周，你成了三个人的老板。没有睡后收入，但有稳稳的现金流和喊你「哥」的实习生。出海站还在跑，成了你招牌上最亮的那行字——人生的岔路，未必是弯路。',
+  },
+
   // ---- 终局结算（回合耗尽时判定） ----
+  {
+    id: 'communityLight',
+    title: '圈子里的那盏灯',
+    icon: 'sparkle',
+    grade: 'A',
+    priority: 95,
+    when: 'final',
+    conditions: {
+      all: [{ flag: 'famous', is: true }, { flag: 'audience', is: true }, { stat: 'income', gte: 5 }],
+    },
+    text: '两年，日入 {stat.income} 刀——不是圈里最高的，但你的帖子被新人一遍遍翻出来读。有人靠你的复盘赚到了第一刀，跑来谢你。你活成了自己出发时想遇到的那个人。',
+  },
   {
     id: 'salaryFree',
     title: '工资自由',

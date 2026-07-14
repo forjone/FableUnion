@@ -6,7 +6,10 @@ export const dailyEvents: EventCard[] = [
     id: 'thanksEmail',
     pool: 'daily',
     title: '一封感谢邮件',
-    text: '收件箱里躺着一封陌生用户的邮件："Your site saved my day. Thank you."',
+    text: [
+      { text: '收件箱里躺着一封陌生用户的邮件："Your site saved my day. Thank you."', conditions: { count: 'event.thanksEmail', lte: 0 } },
+      { text: '又一封感谢邮件。你专门建了个文件夹存它们，名字叫「燃料」。', conditions: { count: 'event.thanksEmail', gte: 1 } },
+    ],
     valence: 1,
     cooldown: 8,
     conditions: { flag: 'siteLive', is: true },
@@ -153,7 +156,10 @@ export const dailyEvents: EventCard[] = [
     id: 'githubStar',
     pool: 'daily',
     title: '涨了一颗 Star',
-    text: '你开源的小工具今天多了一颗 star，来自一个陌生的老外。',
+    text: [
+      { text: '你开源的小工具今天多了一颗 star，来自一个陌生的老外。', conditions: { count: 'event.githubStar', lte: 1 } },
+      { text: 'Star 通知已经不稀奇了，但你还是会点开看看是谁——习惯性的小确幸。', conditions: { count: 'event.githubStar', gte: 2 } },
+    ],
     valence: 1,
     cooldown: 8,
     choices: [
@@ -229,7 +235,10 @@ export const dailyEvents: EventCard[] = [
     id: 'utilities',
     pool: 'daily',
     title: '账单日',
-    text: '水电网费一起到期，支付宝的提醒比闹钟还准时。',
+    text: [
+      { text: '水电网费一起到期。你看了眼余额，心里默默做了道减法。', conditions: { stat: 'cash', lte: 6000 } },
+      { text: '水电网费一起到期，支付宝的提醒比闹钟还准时。', conditions: { stat: 'cash', gte: 6001 } },
+    ],
     valence: -1,
     cooldown: 13,
     choices: [
@@ -244,7 +253,10 @@ export const dailyEvents: EventCard[] = [
     id: 'smallTip',
     pool: 'daily',
     title: '有人请你喝咖啡',
-    text: '网站角落的「Buy me a coffee」按钮，今天真的有人点了。',
+    text: [
+      { text: '网站角落的「Buy me a coffee」按钮，今天真的有人点了。', conditions: { count: 'event.smallTip', lte: 0 } },
+      { text: '咖啡按钮又响了。你的用户里，有一小群人开始固定地表达喜欢。', conditions: { count: 'event.smallTip', gte: 1 } },
+    ],
     valence: 1,
     cooldown: 10,
     conditions: { all: [{ flag: 'siteLive', is: true }, { stat: 'income', gt: 0 }] },
@@ -260,7 +272,10 @@ export const dailyEvents: EventCard[] = [
     id: 'communityPost',
     pool: 'daily',
     title: '社群里的干货帖',
-    text: '出海社群里有人分享了一套「程序化 SEO」的完整打法。',
+    text: [
+      { text: '出海社群里有人分享了一套「程序化 SEO」的完整打法。', conditions: { stat: 'seo', lte: 45 } },
+      { text: '社群里的新帖你扫了一眼就看完了——一半是你踩过的坑，另一半你写过复盘。', conditions: { stat: 'seo', gte: 46 } },
+    ],
     valence: 1,
     cooldown: 9,
     choices: [

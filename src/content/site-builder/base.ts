@@ -273,6 +273,11 @@ export const tasks: Task[] = [
         log: '质变 · 接活口碑立住了，从此单价上了一个台阶。',
         effects: [{ stat: 'cash', add: 1000 }],
       },
+      {
+        count: 10,
+        log: '质变 · 回头客排起了队。你隐约看见另一条路的入口：要不要干脆开个工作室？',
+        effects: [{ flag: 'agencyPath', value: true }, { stat: 'cash', add: 1500 }],
+      },
     ],
   },
   {
