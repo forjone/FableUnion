@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "FableUnion 创作者工具箱",
+  "version": "0.1.0",
+  "description": "一键把当前公众号文章保存到 FableUnion 工具箱，进行爆款拆解与原创复刻",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "保存到 FableUnion"
+  }
+}

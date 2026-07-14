@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FableUnion 创作者工具箱</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6f8; color: #222; }
+  header { background: #fff; border-bottom: 1px solid #e8e8e8; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; }
+  header span { color: #999; font-size: 13px; }
+  main { display: grid; grid-template-columns: 340px 1fr; gap: 16px; padding: 16px 24px; max-width: 1400px; margin: 0 auto; }
+  .panel { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 16px; }
+  .collect { display: flex; gap: 8px; margin-bottom: 14px; }
+  .collect input { flex: 1; padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; }
+  button { padding: 9px 14px; border: none; border-radius: 8px; background: #07c160; color: #fff; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  button:hover { filter: brightness(0.95); }
+  button:disabled { background: #b8e6cd; cursor: wait; }
+  button.ghost { background: #f0f1f3; color: #333; }
+  .list-item { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; cursor: pointer; border-radius: 6px; }
+  .list-item:hover { background: #f7faf8; }
+  .list-item.active { background: #eafaf1; }
+  .list-item .t { font-size: 14px; line-height: 1.4; }
+  .list-item .m { font-size: 12px; color: #999; margin-top: 4px; display: flex; gap: 8px; }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #eef3ff; color: #4a6fd4; }
+  .tabs { display: flex; gap: 6px; margin: 14px 0; flex-wrap: wrap; }
+  .tabs button { background: #f0f1f3; color: #333; }
+  .tabs button.on { background: #07c160; color: #fff; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  #content { line-height: 1.8; font-size: 14px; overflow-x: auto; }
+  #content img { max-width: 100%; }
+  #content h3 { margin: 18px 0 8px; font-size: 15px; }
+  #content ul { padding-left: 22px; }
+  #content pre { white-space: pre-wrap; font-family: inherit; }
+  .meta { font-size: 13px; color: #777; margin-bottom: 6px; }
+  .empty { color: #aaa; text-align: center; padding: 60px 0; font-size: 14px; }
+  .quote { background: #f7f7f7; border-left: 3px solid #07c160; padding: 8px 12px; margin: 6px 0; border-radius: 4px; }
+  #toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; display: none; z-index: 9; max-width: 80%; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧰 FableUnion 创作者工具箱</h1>
+  <span>采集 → 拆解 → 复刻 → 排版 → 发布</span>
+</header>
+<main>
+  <section class="panel">
+    <div class="collect">
+      <input id="url" placeholder="粘贴公众号文章链接…">
+      <button id="collectBtn" onclick="collect()">采集</button>
+    </div>
+    <div id="list"><div class="empty">还没有文章，先采集一篇</div></div>
+  </section>
+  <section class="panel">
+    <div id="detail"><div class="empty">← 选择一篇文章</div></div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+let current = null;   // 当前文章详情
+let tab = 'original';
+
+const $ = id => document.getElementById(id);
+
+function toast(msg, ms = 3000) {
+  const t = $('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', ms);
+}
+
+async function api(path, opts = {}) {
+  const resp = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.detail || resp.statusText);
+  return data;
+}
+
+async function collect() {
+  const url = $('url').value.trim();
+  if (!url) return toast('请先粘贴文章链接');
+  await run('collectBtn', async () => {
+    const r = await api('/api/articles/collect', { method: 'POST', body: JSON.stringify({ url }) });
+    $('url').value = '';
+    toast('已采集：' + (r.title || '无标题'));
+    await loadList();
+    await open(r.id);
+  });
+}
+
+async function loadList() {
+  const items = await api('/api/articles');
+  if (!items.length) { $('list').innerHTML = '<div class="empty">还没有文章，先采集一篇</div>'; return; }
+  $('list').innerHTML = items.map(a => `
+    <div class="list-item ${current && current.id === a.id ? 'active' : ''}" onclick="open(${a.id})">
+      <div class="t">${esc(a.title || '无标题')}</div>
+      <div class="m">
+        <span>${esc(a.account || a.author || '')}</span>
+        ${a.has_analysis ? '<span class="badge">已拆解</span>' : ''}
+        ${a.has_rewrite ? '<span class="badge">已复刻</span>' : ''}
+      </div>
+    </div>`).join('');
+}
+
+async function open(id) {
+  current = await api('/api/articles/' + id);
+  tab = 'original';
+  render();
+  loadList();
+}
+
+function render() {
+  if (!current) return;
+  const a = current;
+  $('detail').innerHTML = `
+    <div class="meta">${esc(a.account || '')} · ${esc(a.author || '')} · ${esc(a.published_at || '')}
+      ${a.url ? `· <a href="${esc(a.url)}" target="_blank">原文</a>` : ''}</div>
+    <h2 style="font-size:18px;line-height:1.4">${esc(a.title || '无标题')}</h2>
+    <div class="actions" style="margin-top:12px">
+      <button id="btnAnalyze" onclick="analyze()">🔍 爆款拆解</button>
+      <button id="btnRewrite" onclick="rewrite()">✍️ 原创复刻</button>
+      <button id="btnFormat" onclick="fmt()">🎨 自动排版</button>
+      <button id="btnPubHook" class="ghost" onclick="publish('webhook')">🚀 推送发布平台</button>
+      <button id="btnPubWx" class="ghost" onclick="publish('wechat_draft')">📄 公众号草稿</button>
+    </div>
+    <div class="tabs">
+      ${['original','analysis','rewrite','formatted'].map(t =>
+        `<button class="${tab === t ? 'on' : ''}" onclick="setTab('${t}')">${
+          { original: '原文', analysis: '拆解结果', rewrite: '复刻稿', formatted: '排版预览' }[t]
+        }</button>`).join('')}
+    </div>
+    <div id="content"></div>`;
+  renderTab();
+}
+
+function setTab(t) { tab = t; render(); }
+
+function renderTab() {
+  const a = current, c = $('content');
+  if (tab === 'original') {
+    c.innerHTML = a.content_html || '<div class="empty">无正文</div>';
+  } else if (tab === 'analysis') {
+    c.innerHTML = a.analysis ? renderAnalysis(a.analysis) : '<div class="empty">还未拆解，点击「爆款拆解」</div>';
+  } else if (tab === 'rewrite') {
+    c.innerHTML = a.rewrite_text
+      ? `<button class="ghost" style="margin-bottom:10px" onclick="copyText(current.rewrite_text)">复制 Markdown</button><pre>${esc(a.rewrite_text)}</pre>`
+      : '<div class="empty">还没有复刻稿，点击「原创复刻」</div>';
+  } else if (tab === 'formatted') {
+    c.innerHTML = a.rewrite_html
+      ? `<button class="ghost" style="margin-bottom:10px" onclick="copyHtml()">复制排版 HTML（可直接粘贴到公众号编辑器）</button><div id="fmtPreview">${a.rewrite_html}</div>`
+      : '<div class="empty">还未排版，点击「自动排版」</div>';
+  }
+}
+
+function renderAnalysis(x) {
+  const list = arr => (arr || []).map(i => `<div class="quote">${esc(typeof i === 'string' ? i : JSON.stringify(i))}</div>`).join('');
+  return `
+    <h3>🎯 标题手法</h3><p>${esc(x.title_technique || '')}</p>
+    <h3>🪝 开头钩子</h3><p>${esc(x.hook || '')}</p>
+    <h3>🏗️ 结构拆解</h3>${(x.structure || []).map(s => `<div class="quote"><b>${esc(s.section)}</b> — ${esc(s.role)}</div>`).join('')}
+    <h3>📚 案例运用</h3>${list(x.cases)}
+    <h3>✨ 金句</h3>${list(x.golden_sentences)}
+    <h3>💰 转化点</h3>${list(x.conversion_points)}
+    <h3>👥 目标读者</h3><p>${esc(x.target_audience || '')}</p>
+    <h3>🧪 可复用公式</h3><div class="quote">${esc(x.replicable_formula || '')}</div>
+    ${x.topic_direction ? `<h3>🧭 选题方向</h3><p>${esc(x.topic_direction)}</p>` : ''}`;
+}
+
+async function analyze() {
+  await run('btnAnalyze', async () => {
+    toast('拆解中，可能需要一两分钟…', 60000);
+    current.analysis = await api(`/api/articles/${current.id}/analyze`, { method: 'POST' });
+    tab = 'analysis'; render(); loadList(); toast('拆解完成');
+  });
+}
+
+async function rewrite() {
+  const topic = prompt('新文章的主题/方向（留空则由 AI 自选同方向角度）：') ?? null;
+  await run('btnRewrite', async () => {
+    toast('复刻创作中，可能需要几分钟…', 180000);
+    const r = await api(`/api/articles/${current.id}/rewrite`, { method: 'POST', body: JSON.stringify({ topic: topic || null }) });
+    current.rewrite_text = r.rewrite_text;
+    tab = 'rewrite'; render(); loadList(); toast('复刻完成');
+  });
+}
+
+async function fmt() {
+  await run('btnFormat', async () => {
+    const r = await api(`/api/articles/${current.id}/format`, { method: 'POST' });
+    current.rewrite_html = r.rewrite_html;
+    tab = 'formatted'; render(); toast('排版完成');
+  });
+}
+
+async function publish(target) {
+  const btn = target === 'webhook' ? 'btnPubHook' : 'btnPubWx';
+  await run(btn, async () => {
+    const r = await api(`/api/articles/${current.id}/publish`, { method: 'POST', body: JSON.stringify({ target }) });
+    toast('发布成功：' + JSON.stringify(r));
+  });
+}
+
+async function run(btnId, fn) {
+  const btn = $(btnId); if (btn) btn.disabled = true;
+  try { await fn(); }
+  catch (e) { toast('出错：' + e.message, 6000); }
+  finally { if (btn) btn.disabled = false; }
+}
+
+function copyText(text) { navigator.clipboard.writeText(text); toast('已复制'); }
+function copyHtml() {
+  const el = $('fmtPreview');
+  const blob = new Blob([el.innerHTML], { type: 'text/html' });
+  navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([el.innerText], { type: 'text/plain' }) })])
+    .then(() => toast('已复制富文本，可直接粘贴到公众号编辑器'))
+    .catch(() => { navigator.clipboard.writeText(el.innerHTML); toast('已复制 HTML 源码'); });
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+
+loadList();
+</script>
+</body>
+</html>
